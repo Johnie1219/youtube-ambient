@@ -70,6 +70,31 @@ NAS와 같은 Wi-Fi라면 바로 됩니다: 휴대폰 브라우저에서 `http:/
 
 > ⚠️ **외부에 열 때는 꼭 인증을 거세요.** `docker-compose.yml`에서 `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` 주석을 풀고 강력한 비밀번호로 바꾸면, 접속 시 아이디·비밀번호를 묻습니다. Tailscale을 쓰면 네트워크 자체가 비공개라 더 안전합니다.
 
+### 🟦 시놀로지(Synology) + Tailscale 단계별 가이드
+
+**1) 앱을 NAS에 올리고 Container Manager로 실행**
+
+1. **Package Center**에서 **Container Manager** 설치 (DSM 7.2 이상).
+2. **File Station**에서 공유 폴더에 이 저장소를 복사합니다. 예: `/docker/youtube-ambient` (Container Manager 설치 시 `docker` 공유폴더가 생깁니다).
+3. **Container Manager → 프로젝트 → 생성**
+   - 프로젝트 이름: `youtube-ambient`
+   - 경로: 방금 복사한 폴더 선택
+   - 소스: **"docker-compose.yml 사용"** (폴더 안의 파일을 자동 인식)
+   - **다음 → 완료** → 이미지 빌드가 끝나면 자동 실행됩니다.
+4. 같은 Wi-Fi의 휴대폰/PC에서 접속 확인: `http://<NAS-IP>:5174`
+
+> (선택·외부공개 시 권장) 프로젝트 만들기 전에 `docker-compose.yml`의 `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` 두 줄 주석을 풀고 값을 바꿔두면 로그인 창이 생깁니다.
+
+**2) Tailscale로 밖에서 접속 (포트 개방 불필요)**
+
+1. NAS: **Package Center**에서 **Tailscale** 검색 후 설치 → 열어서 **로그인**(본인 계정으로 인증).
+   - (검색이 안 되면 [tailscale.com/download/synology](https://tailscale.com/download/synology)에서 기종에 맞는 `.spk`를 받아 Package Center → 수동 설치)
+2. 로그인하면 NAS에 Tailscale 주소가 생깁니다(예: `100.x.y.z`, 또는 MagicDNS 이름 `nas-이름`).
+3. **휴대폰**: 앱스토어/플레이스토어에서 **Tailscale 앱** 설치 → **같은 계정으로 로그인**.
+4. 이제 밖에서도 휴대폰 브라우저에서 접속: **`http://100.x.y.z:5174`** (또는 `http://<MagicDNS-이름>:5174`)
+
+> Tailscale은 두 기기를 비공개 가상 네트워크로 직접 연결하므로 공유기 포트 개방·DDNS가 필요 없고, 트래픽이 자동 암호화됩니다. 가장 간단하고 안전합니다.
+
 ### 모바일 사용 팁
 - 음악 생성은 **휴대폰 CPU**를 쓰므로 길이는 **1~2분**을 권장합니다(앱이 자동으로 기본값을 낮춥니다). 더 긴 영상은 PC에서 만들거나 짧은 음악에 긴 영상을 합치세요.
 - 일반 `http`로도 음악 생성·미리듣기·합치기가 동작합니다. 다만 보안을 위해 외부 접속은 위의 HTTPS(B안의 리버스 프록시)나 Tailscale을 권장합니다.
