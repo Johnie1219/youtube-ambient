@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>가을 계곡 앰비언트 → 유튜브 MP4 메이커</title>
+  <title>가을 앰비언트 스튜디오</title>
 
   <!-- PWA: 홈 화면에 앱으로 설치 (안드로이드·아이폰) -->
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#14110d" />
+  <meta name="theme-color" content="#000000" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -18,75 +18,99 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="hero">
-      <h1>🍂 가을 계곡 앰비언트 <span>→ 유튜브 MP4</span></h1>
-      <p class="sub">코드로 잔잔한 앰비언트 음악을 생성하고, 영상과 합쳐 고화질 MP4를 만듭니다.</p>
-    </header>
+  <!-- 글로벌 나브 -->
+  <nav class="global-nav">
+    <span class="brand">🍂 Ambient Studio</span>
+    <span class="spacer"></span>
+    <a href="#make">만들기</a>
+    <a href="#gallery">내 영상</a>
+    <button id="installBtn" class="btn-utility hidden" type="button">앱 설치</button>
+  </nav>
 
-    <!-- 1단계: 음악 생성 -->
-    <section class="card">
-      <h2><span class="step">1</span> 음악 생성</h2>
+  <!-- 서브 나브 (프로스티드) -->
+  <div class="sub-nav">
+    <span class="sub-title">가을 앰비언트</span>
+    <span class="spacer"></span>
+    <a href="#make" class="hide-sm">음악</a>
+    <a href="#video" class="hide-sm">영상</a>
+    <a href="#gallery">내 영상</a>
+  </div>
+
+  <!-- HERO (다크 타일) -->
+  <section class="tile tile-dark">
+    <div class="inner">
+      <h1 class="hero-display">코드로 만드는<br />가을 앰비언트.</h1>
+      <p class="lead">잔잔한 음악을 생성하고, 어울리는 배경과 합쳐<br />유튜브용 고화질 영상으로.</p>
+      <div class="btn-row">
+        <a href="#make" class="btn btn-primary">시작하기</a>
+        <a href="#gallery" class="btn btn-secondary">내 영상 보기</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1단계: 음악 (화이트 타일) -->
+  <section class="tile tile-light" id="make">
+    <div class="inner">
+      <h2 class="display-lg">음악</h2>
+      <p class="tagline">분위기를 고르고, 코드로 잔잔한 앰비언트를 생성합니다.</p>
 
       <div class="grid">
         <label class="field">
-          <span>분위기 프리셋</span>
+          <span class="label">분위기 프리셋</span>
           <select id="preset"></select>
-          <small id="presetDesc" class="hint"></small>
+          <small class="hint" id="presetDesc"></small>
         </label>
-
         <label class="field">
-          <span>길이 (분)</span>
+          <span class="label">길이 (분)</span>
           <input id="duration" type="number" min="0.2" max="20" step="0.1" value="3" />
           <small class="hint">권장 1~5분. 길수록 브라우저 메모리를 많이 씁니다.</small>
         </label>
-
         <label class="field">
-          <span>시드 (seed)</span>
+          <span class="label">시드 (seed)</span>
           <div class="seed-row">
             <input id="seed" type="number" min="0" step="1" value="2025" />
-            <button id="randomSeed" type="button" class="ghost" title="무작위 시드">🎲</button>
+            <button id="randomSeed" type="button" class="btn-utility" title="무작위 시드">🎲</button>
           </div>
-          <small class="hint">같은 시드 = 같은 멜로디·코드 (물·바람 질감은 미세하게 달라짐)</small>
+          <small class="hint">같은 시드 = 같은 멜로디·코드</small>
         </label>
-
         <label class="field">
-          <span>템포 (BPM)</span>
+          <span class="label">템포 (BPM)</span>
           <input id="bpm" type="number" min="40" max="90" step="1" value="60" />
         </label>
-
-        <label class="field">
-          <span>리버브 (공간감): <b id="reverbVal">50</b>%</span>
+        <label class="field full">
+          <span class="label">리버브 (공간감): <b id="reverbVal">50</b>%</span>
           <input id="reverb" type="range" min="0" max="90" step="1" value="50" />
         </label>
-      </div>
-
-      <div class="layers">
-        <span class="layers-label">레이어</span>
-        <label><input type="checkbox" id="layer-pad" checked /> 패드</label>
-        <label><input type="checkbox" id="layer-melody" checked /> 멜로디</label>
-        <label><input type="checkbox" id="layer-sub" checked /> 베이스</label>
-        <label><input type="checkbox" id="layer-water" checked /> 물·바람 질감</label>
+        <div class="layers">
+          <span class="label">레이어</span>
+          <label><input type="checkbox" id="layer-pad" checked /> 패드</label>
+          <label><input type="checkbox" id="layer-melody" checked /> 멜로디</label>
+          <label><input type="checkbox" id="layer-sub" checked /> 베이스</label>
+          <label><input type="checkbox" id="layer-water" checked /> 물·바람</label>
+        </div>
       </div>
 
       <div class="actions">
-        <button id="generate" class="primary">🎵 음악 생성</button>
+        <button id="generate" class="btn btn-primary">🎵 음악 생성</button>
         <span id="genStatus" class="status"></span>
       </div>
 
-      <div id="audioResult" class="result hidden">
+      <div id="audioResult" class="preview hidden">
         <audio id="player" controls></audio>
-        <button id="downloadWav" class="ghost">⬇ WAV 다운로드</button>
+        <button id="downloadWav" class="btn btn-secondary">WAV 다운로드</button>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- 2단계: 영상 합치기 -->
-    <section class="card">
-      <h2><span class="step">2</span> 영상과 합쳐 MP4 만들기</h2>
+  <!-- 2단계: 영상 (파치먼트 타일) -->
+  <section class="tile tile-parchment" id="video">
+    <div class="inner">
+      <h2 class="display-lg">배경 &amp; 영상</h2>
+      <p class="tagline">테마 배경을 자동 생성하거나 내 영상을 올리고, 제목·해시태그를 적어 MP4로 만듭니다.</p>
 
       <div class="grid">
         <label class="field full">
-          <span>자동 배경 테마</span>
+          <span class="label">자동 배경 테마</span>
           <select id="theme">
             <option value="autumn_valley">🍂 가을 계곡</option>
             <option value="golden_sunset">🌇 황금 노을</option>
@@ -98,47 +122,85 @@
         </label>
 
         <label class="field full">
-          <span>또는 — 내 영상/이미지 파일 (선택)</span>
+          <span class="label">또는 — 내 영상/이미지 (선택)</span>
           <input id="media" type="file" accept="video/*,image/*" />
-          <small class="hint">올리면 이 파일을 사용합니다. 영상은 음악 길이에 맞춰 자동 루프, 이미지는 천천히 줌(켄번스).</small>
+          <small class="hint">올리면 이 파일을 우선 사용. 영상은 자동 루프, 이미지는 켄번스 줌.</small>
         </label>
 
         <label class="field">
-          <span>해상도</span>
+          <span class="label">해상도</span>
           <select id="resolution">
             <option value="1080p">1080p (1920×1080)</option>
             <option value="4k">4K (3840×2160)</option>
           </select>
         </label>
-
         <label class="field">
-          <span>프레임레이트</span>
+          <span class="label">프레임레이트</span>
           <select id="fps">
             <option value="30">30 fps</option>
             <option value="60">60 fps</option>
           </select>
         </label>
+
+        <label class="field full">
+          <span class="label">유튜브 제목</span>
+          <input id="vidTitle" type="text" maxlength="100" placeholder="예: 🍂 가을 계곡 앰비언트 | 잔잔한 휴식·수면·집중 음악" />
+        </label>
+        <label class="field full">
+          <span class="label">해시태그 (쉼표로 구분)</span>
+          <input id="vidTags" type="text" placeholder="앰비언트, 가을, 수면음악, lofi, relaxing" />
+        </label>
+        <label class="field full">
+          <span class="label">설명</span>
+          <textarea id="vidDesc" placeholder="영상 설명…"></textarea>
+        </label>
+        <label class="field">
+          <span class="label">유튜브 공개 범위</span>
+          <select id="vidPrivacy">
+            <option value="private">비공개 (private)</option>
+            <option value="unlisted">일부공개 (unlisted)</option>
+            <option value="public">공개 (public)</option>
+          </select>
+        </label>
       </div>
 
       <div class="actions">
-        <button id="render" class="primary" disabled>🎬 MP4 만들기</button>
-        <span id="renderStatus" class="status"></span>
+        <button id="render" class="btn btn-primary" disabled>🎬 MP4 만들기</button>
+        <span id="renderStatus" class="status">먼저 음악을 생성하세요.</span>
       </div>
 
       <div id="progressWrap" class="progress-wrap hidden">
         <div class="progress"><div id="progressBar" class="bar"></div></div>
-        <span id="progressPct">0%</span>
+        <span class="pct" id="progressPct">0%</span>
       </div>
 
-      <div id="mp4Result" class="result hidden">
-        <video id="mp4Preview" controls></video>
-        <a id="downloadMp4" class="primary" download>⬇ MP4 다운로드</a>
+      <div id="mp4Result" class="preview hidden">
+        <video id="mp4Preview" controls playsinline></video>
+        <a id="downloadMp4" class="btn btn-secondary" download>MP4 다운로드</a>
+        <small class="section-note">NAS에 저장되었습니다. 아래 "내 영상"에서 다시 볼 수 있어요.</small>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <footer class="foot">
-      <span>로컬에서 동작 · 음악은 브라우저에서 생성 · 합치기는 번들된 ffmpeg 사용</span>
-    </footer>
+  <!-- 내 영상 (화이트 타일) -->
+  <section class="tile tile-light" id="gallery">
+    <div class="inner">
+      <h2 class="display-lg">내 영상</h2>
+      <p class="tagline">NAS에 저장된 영상입니다. 버튼 하나로 유튜브에 올릴 수 있어요.</p>
+      <p id="ytSetupNote" class="section-note hidden"></p>
+      <div id="galleryGrid" class="gallery"></div>
+      <p id="galleryEmpty" class="empty hidden">아직 만든 영상이 없습니다.</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    로컬·NAS에서 동작 · 음악은 브라우저에서 생성 · 합치기는 ffmpeg · 유튜브 자동 업로드 지원
+  </footer>
+
+  <!-- iOS 설치 안내 -->
+  <div id="iosHint" class="ios-hint">
+    <span class="close" id="iosHintClose">닫기</span>
+    📲 앱처럼 쓰려면: <b>공유 버튼</b> → <b>홈 화면에 추가</b>
   </div>
 
   <!-- Tone.js (로컬 서빙, 오프라인 동작) -->

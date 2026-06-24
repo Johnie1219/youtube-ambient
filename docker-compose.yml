@@ -10,11 +10,17 @@ services:
     environment:
       - PORT=5174
       - HOST=0.0.0.0
+      - OUTPUT_DIR=/data/output     # 완성 영상이 여기에 영구 저장됨(아래 볼륨에 매핑)
       # 외부 노출 시 권장: 간단 인증 (원하면 주석 해제하고 값 변경)
       # - BASIC_AUTH_USER=admin
       # - BASIC_AUTH_PASS=바꾸세요_강력한_비밀번호
-    # volumes:
-    #   # (선택) 만든 MP4를 NAS 폴더에 보존하려면 아래 주석을 풀고,
-    #   # File Station에서 이 프로젝트 폴더 안에 'output' 폴더를 먼저 만드세요.
-    #   # (시놀로지는 존재하지 않는 폴더를 자동 생성하지 않아 마운트가 실패합니다)
-    #   - ./output:/tmp/youtube-ambient/outputs
+      # ── 유튜브 자동 업로드 (나중에 계정/자격증명 받으면 채우기) ──
+      # - YT_CLIENT_ID=...apps.googleusercontent.com
+      # - YT_CLIENT_SECRET=...
+      # - YT_REFRESH_TOKEN=...
+    volumes:
+      # 완성 영상을 NAS에 영구 저장(도커 named volume — 폴더를 미리 만들 필요 없음).
+      - ambient_output:/data/output
+
+volumes:
+  ambient_output:

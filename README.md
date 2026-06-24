@@ -3,10 +3,12 @@
 코드로 잔잔한 **앰비언트 음악을 생성**하고, **영상/이미지와 합쳐 유튜브용 고화질 MP4**를 만드는 로컬 웹앱입니다.
 
 - 🎵 **음악**: 브라우저에서 [Tone.js](https://tonejs.github.io/)로 절차적 생성 → 오프라인 고음질(24-bit WAV) 렌더
-- 🎬 **합치기**: 로컬 Node 서버가 **ffmpeg**(번들 포함)로 1080p·4K MP4 인코딩
-- 💻 **갤럭시북5 프로(Windows)에서 동작**: ffmpeg 별도 설치 불필요 (`ffmpeg-static` 번들)
-
-가을 계곡 분위기를 기본 프리셋으로, 새벽 안개 · 비 오는 계곡 · 모닥불 밤 변주를 제공합니다.
+- 🎬 **합치기**: Node 서버가 **ffmpeg**(번들 포함)로 1080p·4K MP4 인코딩 + 5가지 자동 배경 테마
+- 💾 **NAS 저장 + 갤러리**: 완성 영상은 NAS에 영구 저장, 앱에서 다시 보기·다운로드·삭제
+- ▶️ **유튜브 자동 업로드**: 제목·해시태그·공개범위를 적고 버튼 한 번으로 업로드(자격증명만 설정)
+- 📱 **앱 설치(PWA)**: 안드로이드·아이폰 홈 화면에 앱으로 추가
+- 🎨 **디자인**: Apple 톤(교차 라이트/다크 타일, 단일 블루 액센트, SF Pro 타이포)
+- 💻 **어디서나**: 갤럭시북5 프로(Windows)나 시놀로지 NAS(Docker)에서 동작
 
 ---
 
@@ -161,7 +163,8 @@ IP 주소를 매번 칠 필요 없이, **홈 화면 아이콘**을 눌러 앱처
 ## 폴더 구조
 
 ```
-server.js                     Express + ffmpeg 백엔드 (합치기, SSE 진행률)
+server.js                     Express + ffmpeg 백엔드 (합치기, SSE 진행률, 갤러리·유튜브 API)
+youtube.js                    유튜브 업로드 모듈 (의존성 없이 https로 OAuth+resumable)
 public/
   index.html                  UI
   styles.css
@@ -177,9 +180,32 @@ scripts/
 Dockerfile, docker-compose.yml  NAS/서버 배포용
 ```
 
+## 내 영상 저장 (NAS)
+
+- 완성된 MP4는 **NAS에 영구 저장**됩니다(도커 named volume `ambient_output` → 컨테이너의 `OUTPUT_DIR=/data/output`). 폴더를 미리 만들 필요가 없습니다.
+- 앱의 **"내 영상"** 섹션에서 저장된 영상을 다시 보고, 다운로드·삭제·유튜브 업로드할 수 있습니다.
+
+## 유튜브 자동 업로드 연결 (나중에 한 번만)
+
+업로드 버튼은 이미 들어 있고, **자격 증명만 채우면** 켜집니다. 영상의 제목·설명·해시태그·공개범위는 앱에서 입력한 값으로 올라갑니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성 → **YouTube Data API v3** 사용 설정.
+2. **OAuth 동의 화면** 구성(외부, 테스트 사용자에 본인 계정 추가) → **사용자 인증 정보 → OAuth 클라이언트 ID(데스크톱 앱)** 생성 → `client_id` / `client_secret` 확보.
+3. **refresh token** 발급: [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/)에서 우측 톱니 → "Use your own OAuth credentials" 체크 후 위 값 입력 → 범위 `https://www.googleapis.com/auth/youtube.upload` 선택 → 인증 → **Exchange authorization code for tokens** → `refresh_token` 복사.
+4. `docker-compose.yml`의 환경변수 주석을 풀고 채운 뒤 다시 빌드:
+   ```yaml
+   - YT_CLIENT_ID=...apps.googleusercontent.com
+   - YT_CLIENT_SECRET=...
+   - YT_REFRESH_TOKEN=...
+   ```
+
+> 미인증 앱은 업로드 영상이 **비공개(private)** 로 제한될 수 있습니다(구글 정책). 먼저 비공개로 올린 뒤 유튜브 스튜디오에서 공개로 바꾸거나, 앱 인증을 받으면 공개 업로드가 가능합니다.
+
 ## 환경 변수
 
 - `PORT` — 서버 포트 (기본 `5174`)
 - `HOST` — 바인딩 주소 (기본 `0.0.0.0`, 모든 인터페이스 → LAN/원격 접속 허용)
+- `OUTPUT_DIR` — 완성 영상 저장 경로 (Docker는 `/data/output` = named volume)
 - `FFMPEG_PATH` — ffmpeg 실행 파일 경로 (지정 시 우선, 미지정 시 번들된 `ffmpeg-static` 사용. Docker는 `/usr/bin/ffmpeg`)
 - `BASIC_AUTH_USER`, `BASIC_AUTH_PASS` — 둘 다 설정하면 간단 Basic 인증 활성화 (외부 노출 시 권장)
+- `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` — 셋 다 설정하면 유튜브 업로드 활성화

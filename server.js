@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
+const youtube = require('./youtube');
 
 // ffmpeg 경로: FFMPEG_PATH(예: Docker의 /usr/bin/ffmpeg)가 있으면 우선, 없으면 번들(ffmpeg-static)
 const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
@@ -47,10 +48,10 @@ if (AUTH_USER && AUTH_PASS) {
   });
 }
 
-// 작업/업로드용 임시 폴더
+// 작업용 임시 업로드 폴더 + 완성 영상 영구 저장 폴더(OUTPUT_DIR → NAS 볼륨에 매핑)
 const WORK = path.join(os.tmpdir(), 'youtube-ambient');
 const UPLOADS = path.join(WORK, 'uploads');
-const OUTPUTS = path.join(WORK, 'outputs');
+const OUTPUTS = process.env.OUTPUT_DIR || path.join(WORK, 'outputs');
 fs.mkdirSync(UPLOADS, { recursive: true });
 fs.mkdirSync(OUTPUTS, { recursive: true });
 
@@ -59,9 +60,50 @@ const upload = multer({
   limits: { fileSize: 4 * 1024 * 1024 * 1024 }, // 4GB
 });
 
+app.use(express.json({ limit: '1mb' }));
+
 // 정적 파일
 app.use('/vendor', express.static(path.join(__dirname, 'node_modules', 'tone', 'build')));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── 완성 영상 메타데이터(제목/설명/태그/유튜브 상태) 헬퍼 ──────────────
+function metaPath(id) { return path.join(OUTPUTS, id + '.json'); }
+function videoPath(id) { return path.join(OUTPUTS, id + '.mp4'); }
+function isValidId(id) { return /^[a-f0-9]{8,32}$/.test(String(id)); }
+
+function readMeta(id) {
+  try { return JSON.parse(fs.readFileSync(metaPath(id), 'utf8')); }
+  catch (_) { return null; }
+}
+function writeMeta(id, meta) {
+  try { fs.writeFileSync(metaPath(id), JSON.stringify(meta, null, 2)); } catch (_) { /* ignore */ }
+}
+function listVideos() {
+  let files = [];
+  try { files = fs.readdirSync(OUTPUTS); } catch (_) { return []; }
+  return files
+    .filter((f) => f.endsWith('.mp4'))
+    .map((f) => {
+      const id = f.replace(/\.mp4$/, '');
+      let size = 0;
+      try { size = fs.statSync(videoPath(id)).size; } catch (_) {}
+      const meta = readMeta(id) || {};
+      return {
+        id,
+        title: meta.title || id,
+        description: meta.description || '',
+        tags: meta.tags || [],
+        theme: meta.theme || null,
+        preset: meta.preset || null,
+        durationSec: meta.durationSec || null,
+        resolution: meta.resolution || null,
+        createdAt: meta.createdAt || 0,
+        sizeMB: Math.round((size / (1024 * 1024)) * 10) / 10,
+        youtube: meta.youtube || null,
+      };
+    })
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
 
 // jobId -> { status, percent, file, error, listeners[], cleanup[] }
 const jobs = new Map();
@@ -156,6 +198,25 @@ app.post(
     const jobId = crypto.randomBytes(8).toString('hex');
     const outFile = path.join(OUTPUTS, jobId + '.mp4');
 
+    // 영상 메타데이터(제목/설명/태그) — 유튜브 업로드에 그대로 사용
+    const meta = {
+      id: jobId,
+      title: (req.body.title || '').toString().trim() || '가을 앰비언트',
+      description: (req.body.description || '').toString(),
+      tags: (req.body.tags || '')
+        .toString()
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 30),
+      theme: req.body.theme || null,
+      preset: req.body.preset || null,
+      durationSec: Math.round(duration),
+      resolution: res4k ? '4k' : '1080p',
+      createdAt: Date.now(),
+      youtube: null,
+    };
+
     const job = {
       status: 'processing',
       percent: 0,
@@ -163,6 +224,7 @@ app.post(
       error: null,
       listeners: [],
       cleanup: [audio.path, media && media.path].filter(Boolean),
+      meta,
     };
     jobs.set(jobId, job);
 
@@ -231,8 +293,9 @@ app.post(
       .on('end', () => {
         job.status = 'done';
         job.percent = 100;
+        writeMeta(jobId, job.meta); // NAS에 메타데이터 저장(영상은 OUTPUT_DIR에 영구 보존)
         notify(job);
-        job.cleanup.forEach(safeUnlink);
+        job.cleanup.forEach(safeUnlink); // 임시 업로드(오디오/영상)만 정리, 결과물은 유지
       })
       .on('error', (err) => {
         job.status = 'error';
@@ -276,18 +339,89 @@ app.get('/api/progress/:id', (req, res) => {
   });
 });
 
-// 결과 MP4 다운로드
+// 결과 MP4 다운로드 (영구 저장본에서 직접 — 서버 재시작 후에도 동작)
 app.get('/api/download/:id', (req, res) => {
-  const job = jobs.get(req.params.id);
-  if (!job || job.status !== 'done' || !fs.existsSync(job.file)) {
+  const id = req.params.id;
+  if (!isValidId(id) || !fs.existsSync(videoPath(id))) {
     return res.status(404).send('결과 파일을 찾을 수 없습니다.');
   }
-  const name = req.query.name ? String(req.query.name) : `autumn-ambient-${req.params.id}.mp4`;
-  res.download(job.file, name);
+  const name = req.query.name ? String(req.query.name) : `autumn-ambient-${id}.mp4`;
+  res.download(videoPath(id), name);
+});
+
+// 갤러리: NAS에 저장된 영상 목록
+app.get('/api/videos', (req, res) => {
+  res.json({ videos: listVideos(), youtube: { configured: youtube.isConfigured() } });
+});
+
+// 영상 인라인 재생/스트리밍
+app.get('/api/videos/:id/file', (req, res) => {
+  const id = req.params.id;
+  if (!isValidId(id) || !fs.existsSync(videoPath(id))) return res.status(404).end();
+  res.type('video/mp4');
+  fs.createReadStream(videoPath(id)).pipe(res);
+});
+
+// 영상 삭제
+app.delete('/api/videos/:id', (req, res) => {
+  const id = req.params.id;
+  if (!isValidId(id)) return res.status(400).json({ error: '잘못된 ID' });
+  safeUnlink(videoPath(id));
+  safeUnlink(metaPath(id));
+  res.json({ ok: true });
+});
+
+// 유튜브 연결 상태
+app.get('/api/youtube/status', (req, res) => {
+  res.json({ configured: youtube.isConfigured() });
+});
+
+// 유튜브 업로드 (자격 증명이 설정돼 있을 때만)
+app.post('/api/videos/:id/youtube', async (req, res) => {
+  const id = req.params.id;
+  if (!isValidId(id) || !fs.existsSync(videoPath(id))) {
+    return res.status(404).json({ error: '영상을 찾을 수 없습니다.' });
+  }
+  if (!youtube.isConfigured()) {
+    return res.status(400).json({
+      error: 'YouTube가 아직 연결되지 않았습니다. 서버 환경변수 YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN을 설정하세요.',
+      needsSetup: true,
+    });
+  }
+  const meta = readMeta(id) || {};
+  const body = req.body || {};
+  const title = (body.title || meta.title || '가을 앰비언트').toString();
+  const description = (body.description || meta.description || '').toString();
+  const tags = Array.isArray(body.tags)
+    ? body.tags
+    : (body.tags || (meta.tags || []).join(','))
+        .toString()
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const privacyStatus = ['public', 'unlisted', 'private'].includes(body.privacy) ? body.privacy : 'private';
+
+  try {
+    const result = await youtube.uploadVideo({
+      filePath: videoPath(id),
+      title,
+      description,
+      tags,
+      privacyStatus,
+    });
+    meta.youtube = { uploaded: true, id: result.id, url: result.url, privacy: privacyStatus, uploadedAt: Date.now() };
+    meta.title = title;
+    meta.description = description;
+    meta.tags = tags;
+    writeMeta(id, meta);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err && err.message ? err.message : String(err) });
+  }
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, ffmpeg: ffmpegPath });
+  res.json({ ok: true, ffmpeg: ffmpegPath, youtube: youtube.isConfigured() });
 });
 
 app.listen(PORT, HOST, () => {
