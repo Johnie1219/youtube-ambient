@@ -111,8 +111,32 @@
       // ── 마스터 체인 ──────────────────────────────────────────────
       const master = new Tone.Gain(0).toDestination();
       const limiter = new Tone.Limiter(-1).connect(master);
-      const reverb = new Tone.Freeverb({ roomSize: 0.92, dampening: 2600 }).connect(limiter);
-      reverb.wet.value = reverbWet;
+
+      // 리버브: 컨볼루션(ConvolverNode). 감쇠 노이즈로 임펄스 응답(IR)을 직접 생성한다.
+      // Tone.Freeverb·JCReverb는 AudioWorklet 기반이라 오프라인 렌더에서 멈춤 → 사용하지 않음.
+      // ConvolverNode는 네이티브라 오프라인에서 안전하고, IR 정규화로 레벨이 안정적이다.
+      const wetAmt = Math.max(0, Math.min(0.9, reverbWet));
+      const rawCtx = Tone.getContext().rawContext;
+      const irSeconds = 2.8;
+      const irLen = Math.floor(irSeconds * sampleRate);
+      const ir = rawCtx.createBuffer(2, irLen, sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = ir.getChannelData(ch);
+        for (let i = 0; i < irLen; i++) {
+          const t = i / irLen;
+          const env = Math.pow(1 - t, 2.6); // 부드러운 지수형 감쇠
+          d[i] = (rng() * 2 - 1) * env;
+        }
+      }
+      // Convolver는 ToneAudioNode(웻 100%)라 드라이/웻을 직접 라우팅한다.
+      const reverb = new Tone.Gain(1); // 악기 합류 지점
+      const dryGain = new Tone.Gain(1).connect(limiter);
+      const wetGain = new Tone.Gain(wetAmt).connect(limiter);
+      reverb.connect(dryGain);
+      const conv = new Tone.Convolver();
+      conv.buffer = ir;
+      reverb.connect(conv);
+      conv.connect(wetGain);
 
       // 페이드 인/아웃
       const targetLevel = 0.85;
@@ -228,6 +252,24 @@
     if (onStage) onStage('인코딩 중…');
     // ToneAudioBuffer → 네이티브 AudioBuffer
     const native = typeof buffer.get === 'function' ? buffer.get() : buffer;
+
+    // 피크 노멀라이즈: 프리셋/레이어와 무관하게 -1dBFS(≈0.89) 근처로 레벨 일정화.
+    // (악기들이 의도적으로 낮게 믹스되어 그대로면 너무 작음)
+    let peak = 0;
+    for (let c = 0; c < native.numberOfChannels; c++) {
+      const d = native.getChannelData(c);
+      for (let i = 0; i < d.length; i++) {
+        const a = Math.abs(d[i]);
+        if (a > peak) peak = a;
+      }
+    }
+    if (peak > 0.0001) {
+      const gain = Math.min(12, 0.89 / peak); // 거의 무음일 때 과증폭 방지
+      for (let c = 0; c < native.numberOfChannels; c++) {
+        const d = native.getChannelData(c);
+        for (let i = 0; i < d.length; i++) d[i] *= gain;
+      }
+    }
     return native;
   }
 
