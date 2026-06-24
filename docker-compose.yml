@@ -1,8 +1,11 @@
 services:
   ambient:
-    build: .
-    # 또는 미리 빌드한 이미지를 쓰려면 위 build 대신:
-    # image: youtube-ambient:latest
+    # 깃에 올라간 코드를 GitHub가 자동 빌드해 올린 이미지를 받아서 실행한다.
+    # (NAS에서 직접 빌드하지 않으므로 느린 빌드가 없음)
+    image: ghcr.io/johnie1219/youtube-ambient:latest
+    pull_policy: always
+    # 로컬에서 소스로 직접 빌드하려면 위 image 대신 아래 주석을 사용:
+    # build: .
     container_name: youtube-ambient
     restart: unless-stopped
     ports:
@@ -21,6 +24,15 @@ services:
     volumes:
       # 완성 영상을 NAS에 영구 저장(도커 named volume — 폴더를 미리 만들 필요 없음).
       - ambient_output:/data/output
+
+  # 깃에 새 코드가 올라가면 자동으로 위 컨테이너를 최신 이미지로 교체(2분마다 확인).
+  watchtower:
+    image: containrrr/watchtower
+    container_name: youtube-ambient-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 120 --cleanup youtube-ambient
 
 volumes:
   ambient_output:

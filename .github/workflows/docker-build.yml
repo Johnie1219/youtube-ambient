@@ -1,0 +1,43 @@
+name: build-image
+
+# 깃에 push되면 GitHub가 도커 이미지를 빌드해서 GHCR(GitHub Container Registry)에 올린다.
+# NAS의 Watchtower가 이 이미지를 감시하다가 새 버전이 올라오면 자동으로 갱신한다.
+on:
+  push:
+    branches:
+      - claude/laughing-newton-bojmce
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (멀티 아키텍처용 — NAS는 arm64)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/johnie1219/youtube-ambient:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

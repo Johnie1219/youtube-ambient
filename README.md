@@ -41,22 +41,21 @@ http://localhost:5174
 
 NAS에 올려두면 집의 휴대폰은 물론, 밖에서도 접속해 쓸 수 있습니다. 음악 생성은 접속한 기기(휴대폰)의 브라우저에서, **무거운 MP4 합치기는 NAS가** 처리합니다.
 
-### A. NAS에서 Docker로 실행
+### A. NAS에서 Docker로 실행 (자동 업데이트)
 
-대부분의 NAS(시놀로지 Container Manager / QNAP Container Station 등)는 Docker를 지원합니다.
+코드가 깃에 올라가면 GitHub가 자동으로 이미지를 빌드해 **GHCR**에 올리고, NAS의 **Watchtower**가 그걸 받아 자동 갱신합니다. NAS에서 직접 빌드하지 않아 빠릅니다. **처음 한 번만** 설정하면 그 뒤로는 손댈 필요 없습니다.
 
-1. 이 저장소를 NAS의 공유 폴더에 복사합니다.
-2. 그 폴더에서 다음을 실행(또는 NAS의 Docker UI에서 `docker-compose.yml`을 불러오기):
+**최초 1회 설정**
+1. GitHub 저장소 → **Packages**에서 `youtube-ambient` 패키지가 생기면(첫 Actions 빌드 후) **Package settings → Change visibility → Public** 으로 변경(인증 없이 NAS가 받도록).
+2. 시놀로지 **Container Manager → 프로젝트 → 생성**:
+   - 경로: 아무 폴더(예: `/docker/youtube-ambient`)
+   - 원본: **docker-compose.yml 생성** → 이 저장소의 `docker-compose.yml` 내용을 붙여넣기 (이미지 기반이라 소스 파일을 NAS에 올릴 필요 없음)
+   - 빌드 → 이미지를 받아 실행됩니다.
+3. 접속: `http://<NAS-IP>:5174`
 
-   ```bash
-   docker compose up -d --build
-   ```
+**그 뒤로는** 코드가 바뀔 때마다 GitHub가 빌드 → Watchtower가 2분 내 자동 교체. **수동 업로드/재빌드 불필요.**
 
-3. NAS의 IP로 접속: `http://<NAS-IP>:5174`
-   - `ffmpeg`는 이미지 안에 포함됩니다(별도 설치 불필요).
-   - (선택) 만든 MP4를 NAS 폴더에 보존하려면 `docker-compose.yml`의 `volumes` 주석을 풀고, **File Station에서 프로젝트 폴더 안에 `output` 폴더를 먼저 만든 뒤** 다시 빌드하세요. (시놀로지는 없는 폴더를 자동 생성하지 않습니다.)
-
-> 포트를 바꾸려면 `docker-compose.yml`의 `"5174:5174"`에서 **앞 숫자**(호스트 포트)만 바꾸세요.
+> 로컬(노트북)에서 소스로 직접 돌리려면 `docker-compose.yml`에서 `image:` 대신 `build: .`을 쓰거나, 그냥 `npm install && npm start`.
 
 ### B. 같은 집 네트워크(Wi-Fi)에서 휴대폰으로
 
