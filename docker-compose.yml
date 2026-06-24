@@ -13,6 +13,8 @@ services:
       # 외부 노출 시 권장: 간단 인증 (원하면 주석 해제하고 값 변경)
       # - BASIC_AUTH_USER=admin
       # - BASIC_AUTH_PASS=바꾸세요_강력한_비밀번호
-    volumes:
-      # (선택) 만든 MP4를 NAS 폴더에 보존하고 싶으면 매핑. 기본은 컨테이너 임시폴더.
-      - ./output:/tmp/youtube-ambient/outputs
+    # volumes:
+    #   # (선택) 만든 MP4를 NAS 폴더에 보존하려면 아래 주석을 풀고,
+    #   # File Station에서 이 프로젝트 폴더 안에 'output' 폴더를 먼저 만드세요.
+    #   # (시놀로지는 존재하지 않는 폴더를 자동 생성하지 않아 마운트가 실패합니다)
+    #   - ./output:/tmp/youtube-ambient/outputs
