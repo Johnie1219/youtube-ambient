@@ -35,6 +35,47 @@ http://localhost:5174
 
 ---
 
+## 📱 휴대폰·외부에서 쓰기 (NAS 서버 배포)
+
+NAS에 올려두면 집의 휴대폰은 물론, 밖에서도 접속해 쓸 수 있습니다. 음악 생성은 접속한 기기(휴대폰)의 브라우저에서, **무거운 MP4 합치기는 NAS가** 처리합니다.
+
+### A. NAS에서 Docker로 실행
+
+대부분의 NAS(시놀로지 Container Manager / QNAP Container Station 등)는 Docker를 지원합니다.
+
+1. 이 저장소를 NAS의 공유 폴더에 복사합니다.
+2. 그 폴더에서 다음을 실행(또는 NAS의 Docker UI에서 `docker-compose.yml`을 불러오기):
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. NAS의 IP로 접속: `http://<NAS-IP>:5174`
+   - `ffmpeg`는 이미지 안에 포함됩니다(별도 설치 불필요).
+   - 만든 MP4는 폴더 매핑(`./output`)으로 NAS에 보존됩니다.
+
+> 포트를 바꾸려면 `docker-compose.yml`의 `"5174:5174"`에서 **앞 숫자**(호스트 포트)만 바꾸세요.
+
+### B. 같은 집 네트워크(Wi-Fi)에서 휴대폰으로
+
+NAS와 같은 Wi-Fi라면 바로 됩니다: 휴대폰 브라우저에서 `http://<NAS-IP>:5174`.
+
+### C. 밖에서(외부망) 접속 — 한 가지 고르세요
+
+| 방법 | 장점 | 비고 |
+|------|------|------|
+| **Tailscale (권장)** | 포트 개방 불필요, 자동 암호화, 가장 안전·간단 | NAS와 휴대폰에 Tailscale 앱 설치 → 휴대폰에서 `http://<NAS의 Tailscale IP>:5174` |
+| **NAS 리버스 프록시 + DDNS + HTTPS** | 주소 하나로 https 접속 | 시놀로지: 제어판 → 로그인 포털 → 고급 → 리버스 프록시에서 `ambient.<내도메인>.synology.me → localhost:5174`, 인증서는 Let's Encrypt 자동발급 |
+| **Cloudflare Tunnel** | 포트 개방 없이 외부 공개 | `cloudflared`로 `localhost:5174` 터널링 |
+
+> ⚠️ **외부에 열 때는 꼭 인증을 거세요.** `docker-compose.yml`에서 `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` 주석을 풀고 강력한 비밀번호로 바꾸면, 접속 시 아이디·비밀번호를 묻습니다. Tailscale을 쓰면 네트워크 자체가 비공개라 더 안전합니다.
+
+### 모바일 사용 팁
+- 음악 생성은 **휴대폰 CPU**를 쓰므로 길이는 **1~2분**을 권장합니다(앱이 자동으로 기본값을 낮춥니다). 더 긴 영상은 PC에서 만들거나 짧은 음악에 긴 영상을 합치세요.
+- 일반 `http`로도 음악 생성·미리듣기·합치기가 동작합니다. 다만 보안을 위해 외부 접속은 위의 HTTPS(B안의 리버스 프록시)나 Tailscale을 권장합니다.
+
+---
+
 ## 사용법
 
 ### 1단계 — 음악 생성
@@ -94,3 +135,6 @@ public/
 ## 환경 변수
 
 - `PORT` — 서버 포트 (기본 `5174`)
+- `HOST` — 바인딩 주소 (기본 `0.0.0.0`, 모든 인터페이스 → LAN/원격 접속 허용)
+- `FFMPEG_PATH` — ffmpeg 실행 파일 경로 (지정 시 우선, 미지정 시 번들된 `ffmpeg-static` 사용. Docker는 `/usr/bin/ffmpeg`)
+- `BASIC_AUTH_USER`, `BASIC_AUTH_PASS` — 둘 다 설정하면 간단 Basic 인증 활성화 (외부 노출 시 권장)

@@ -32,6 +32,14 @@
     $('reverbVal').textContent = $('reverb').value;
   });
 
+  // 모바일: 음악 생성은 브라우저 CPU를 쓰므로 긴 길이는 무겁다 → 기본값을 낮추고 안내
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (isMobile) {
+    $('duration').value = 2;
+    const hint = $('duration').parentElement.querySelector('.hint');
+    if (hint) hint.textContent = '휴대폰에서는 1~2분을 권장합니다(브라우저에서 생성하므로 길수록 느려요). MP4 합치기는 서버에서 처리됩니다.';
+  }
+
   $('randomSeed').addEventListener('click', () => {
     $('seed').value = Math.floor(Math.random() * 1000000);
   });

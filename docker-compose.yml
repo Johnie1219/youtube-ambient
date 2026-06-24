@@ -1,0 +1,18 @@
+services:
+  ambient:
+    build: .
+    # 또는 미리 빌드한 이미지를 쓰려면 위 build 대신:
+    # image: youtube-ambient:latest
+    container_name: youtube-ambient
+    restart: unless-stopped
+    ports:
+      - "5174:5174"        # 호스트:컨테이너 — NAS에서 원하는 호스트 포트로 바꿔도 됨
+    environment:
+      - PORT=5174
+      - HOST=0.0.0.0
+      # 외부 노출 시 권장: 간단 인증 (원하면 주석 해제하고 값 변경)
+      # - BASIC_AUTH_USER=admin
+      # - BASIC_AUTH_PASS=바꾸세요_강력한_비밀번호
+    volumes:
+      # (선택) 만든 MP4를 NAS 폴더에 보존하고 싶으면 매핑. 기본은 컨테이너 임시폴더.
+      - ./output:/tmp/youtube-ambient/outputs

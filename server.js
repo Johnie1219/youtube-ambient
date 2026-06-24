@@ -16,12 +16,36 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
 
-ffmpeg.setFfmpegPath(ffmpegPath);
+// ffmpeg 경로: FFMPEG_PATH(예: Docker의 /usr/bin/ffmpeg)가 있으면 우선, 없으면 번들(ffmpeg-static)
+const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 const PORT = process.env.PORT || 5174;
+const HOST = process.env.HOST || '0.0.0.0'; // 모든 인터페이스 → LAN/원격 접속 허용
+
+// 리버스 프록시(NAS) 뒤에서 동작 시 클라이언트 IP/프로토콜 신뢰
+app.set('trust proxy', true);
+
+// (선택) 외부 노출용 간단 Basic 인증 — BASIC_AUTH_USER/PASS 환경변수가 있으면 활성화
+const AUTH_USER = process.env.BASIC_AUTH_USER;
+const AUTH_PASS = process.env.BASIC_AUTH_PASS;
+if (AUTH_USER && AUTH_PASS) {
+  app.use((req, res, next) => {
+    const hdr = req.headers.authorization || '';
+    const [scheme, encoded] = hdr.split(' ');
+    if (scheme === 'Basic' && encoded) {
+      const decoded = Buffer.from(encoded, 'base64').toString();
+      const idx = decoded.indexOf(':');
+      const u = decoded.slice(0, idx);
+      const p = decoded.slice(idx + 1);
+      if (u === AUTH_USER && p === AUTH_PASS) return next();
+    }
+    res.set('WWW-Authenticate', 'Basic realm="ambient"');
+    return res.status(401).send('인증이 필요합니다.');
+  });
+}
 
 // 작업/업로드용 임시 폴더
 const WORK = path.join(os.tmpdir(), 'youtube-ambient');
@@ -246,7 +270,10 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, ffmpeg: ffmpegPath });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log('\n  🍂  가을 계곡 앰비언트 → 유튜브 MP4 메이커');
-  console.log(`  ▶  브라우저에서 열기:  http://localhost:${PORT}\n`);
+  console.log(`  ▶  로컬:       http://localhost:${PORT}`);
+  console.log(`  ▶  같은 네트워크(LAN/휴대폰): http://<이 서버의 IP>:${PORT}`);
+  if (AUTH_USER && AUTH_PASS) console.log('  🔒  Basic 인증 활성화됨');
+  console.log('');
 });
