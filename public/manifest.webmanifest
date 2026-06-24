@@ -1,0 +1,17 @@
+{
+  "name": "가을 계곡 앰비언트 → 유튜브 MP4",
+  "short_name": "가을 앰비언트",
+  "description": "코드로 잔잔한 앰비언트 음악을 만들고 영상과 합쳐 유튜브용 MP4를 만드는 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14110d",
+  "theme_color": "#14110d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

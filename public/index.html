@@ -2,8 +2,19 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>가을 계곡 앰비언트 → 유튜브 MP4 메이커</title>
+
+  <!-- PWA: 홈 화면에 앱으로 설치 (안드로이드·아이폰) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#14110d" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="가을 앰비언트" />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -75,12 +86,21 @@
 
       <div class="grid">
         <label class="field full">
-          <span>배경 (선택) — 영상 또는 이미지 파일</span>
+          <span>자동 배경 테마</span>
+          <select id="theme">
+            <option value="autumn_valley">🍂 가을 계곡</option>
+            <option value="golden_sunset">🌇 황금 노을</option>
+            <option value="misty_dawn">🌫️ 새벽 안개</option>
+            <option value="rosewood_night">🔥 모닥불 밤</option>
+            <option value="forest_emerald">🌲 숲 에메랄드</option>
+          </select>
+          <small class="hint">파일을 안 올리면 이 테마로 배경을 자동 생성합니다(10초 주기로 은은하게 호흡, 음악 길이만큼 이어져 이음새 없음).</small>
+        </label>
+
+        <label class="field full">
+          <span>또는 — 내 영상/이미지 파일 (선택)</span>
           <input id="media" type="file" accept="video/*,image/*" />
-          <small class="hint">
-            영상은 음악 길이에 맞춰 자동 루프, 이미지는 천천히 줌(켄번스).
-            비우면 가을톤 그라데이션이 자동 생성됩니다.
-          </small>
+          <small class="hint">올리면 이 파일을 사용합니다. 영상은 음악 길이에 맞춰 자동 루프, 이미지는 천천히 줌(켄번스).</small>
         </label>
 
         <label class="field">

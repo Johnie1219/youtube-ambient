@@ -96,6 +96,15 @@ function safeUnlink(p) {
  * - 이미지: 느린 켄번스 줌
  * - 폴백: lavfi gradients(서버 입력에서 생성)
  */
+// 자동 생성 배경 테마 5종 (gradients 2색 + 흐름 속도). 색은 0xRRGGBB.
+const THEMES = {
+  autumn_valley:  { c0: '0x16281c', c1: '0x4a3410', speed: 0.006 }, // 가을 계곡: 숲 그린 → 앰버
+  golden_sunset:  { c0: '0x3a1e08', c1: '0xc8862a', speed: 0.005 }, // 황금 노을: 갈색 → 황금빛
+  misty_dawn:     { c0: '0x10202a', c1: '0x3a4a52', speed: 0.004 }, // 새벽 안개: 짙은 청록 → 슬레이트
+  rosewood_night: { c0: '0x2a0e1a', c1: '0x4a2440', speed: 0.004 }, // 모닥불 밤: 적갈색 → 자줏빛
+  forest_emerald: { c0: '0x0e2014', c1: '0x2f5a36', speed: 0.005 }, // 숲 에메랄드: 짙은 녹 → 모스 그린
+};
+
 function buildVideoFilter({ kind, w, h, fps, duration }) {
   if (kind === 'image') {
     const frames = Math.max(1, Math.ceil(duration * fps));
@@ -107,7 +116,17 @@ function buildVideoFilter({ kind, w, h, fps, duration }) {
       `setsar=1,format=yuv420p`
     );
   }
-  // 영상 클립 또는 gradients 폴백 공통 처리
+  if (kind === 'gradient') {
+    // 자동 테마 배경: gradients 소스가 이미 WxH로 생성되므로 스케일 불필요.
+    // 색을 천천히 흐르게(소스 speed) + 10초 주기의 은은한 밝기/채도 호흡 + 비네팅.
+    // sin은 매 프레임 평가되어야 하므로 eq에 eval=frame 지정(기본은 init이라 정지함).
+    return (
+      `eq=brightness='0.05*sin(2*PI*t/10)':saturation='1.06+0.10*sin(2*PI*t/10)':eval=frame,` +
+      `vignette,` +
+      `fps=${fps},setsar=1,format=yuv420p`
+    );
+  }
+  // 영상 클립: 비율 유지 스케일 + 레터박스 패드
   return (
     `scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
     `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,` +
@@ -165,11 +184,12 @@ app.post(
       // 단일 이미지 입력 → zoompan이 직접 프레임을 생성(켄번스). -loop 금지.
       cmd.input(media.path);
     } else {
-      // 가을톤 그라데이션 자동 생성 (deep forest green → warm amber). 2색 = 모든 빌드 호환.
+      // 자동 테마 배경: 선택한 테마의 2색 그라데이션을 음악 길이만큼 연속 생성(이음새 없음).
+      const theme = THEMES[req.body.theme] || THEMES.autumn_valley;
       cmd
         .input(
-          `gradients=s=${w}x${h}:c0=0x16281c:c1=0x4a3410:` +
-            `x0=0:y0=0:x1=${w}:y1=${h}:d=${Math.ceil(duration)}:speed=0.006`
+          `gradients=s=${w}x${h}:c0=${theme.c0}:c1=${theme.c1}:` +
+            `x0=0:y0=0:x1=${w}:y1=${h}:d=${Math.ceil(duration)}:speed=${theme.speed}`
         )
         .inputOptions(['-f', 'lavfi']);
     }

@@ -3,6 +3,13 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
+  // PWA 서비스 워커 등록 (HTTPS·localhost 등 보안 컨텍스트에서만 동작; 아니면 조용히 무시)
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
   // 상태
   let wavBlob = null;
   let wavUrl = null;
@@ -115,6 +122,7 @@
     fd.append('audio', wavBlob, 'ambient.wav');
     const media = $('media').files[0];
     if (media) fd.append('media', media);
+    fd.append('theme', $('theme').value);
     fd.append('duration', String(audioDuration));
     fd.append('resolution', $('resolution').value);
     fd.append('fps', $('fps').value);
