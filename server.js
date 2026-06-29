@@ -17,6 +17,7 @@ const express = require('express');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const youtube = require('./youtube');
+const metadata = require('./metadata');
 
 // ffmpeg 경로: FFMPEG_PATH(예: Docker의 /usr/bin/ffmpeg)가 있으면 우선, 없으면 번들(ffmpeg-static)
 const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
@@ -420,8 +421,28 @@ app.post('/api/videos/:id/youtube', async (req, res) => {
   }
 });
 
+// AI/템플릿 메타데이터 생성 (제목·해시태그·설명)
+app.post('/api/metadata/generate', async (req, res) => {
+  try {
+    const md = await metadata.generate({
+      preset: req.body.preset,
+      theme: req.body.theme,
+      durationSec: parseFloat(req.body.durationSec) || 180,
+      seed: parseInt(req.body.seed, 10) || 1,
+    });
+    res.json(md);
+  } catch (e) {
+    res.status(500).json({ error: e && e.message ? e.message : String(e) });
+  }
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, ffmpeg: ffmpegPath, youtube: youtube.isConfigured() });
+  res.json({
+    ok: true,
+    ffmpeg: ffmpegPath,
+    youtube: youtube.isConfigured(),
+    metadataProvider: process.env.METADATA_PROVIDER || 'template',
+  });
 });
 
 app.listen(PORT, HOST, () => {

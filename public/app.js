@@ -68,6 +68,40 @@
   );
   applyPresetDefaults();
 
+  // ── AI/템플릿 메타데이터 자동 작성 ────────────────────────
+  $('metaGenerate').addEventListener('click', async () => {
+    const btn = $('metaGenerate');
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>작성 중…';
+    try {
+      const resp = await fetch('/api/metadata/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preset: presetSel.value,
+          theme: $('theme').value,
+          durationSec: audioDuration || 180,
+          seed: parseInt($('seed').value, 10) || 1,
+        }),
+      });
+      const j = await resp.json();
+      if (!resp.ok) throw new Error(j.error || '실패');
+      $('vidTitle').value = j.title || '';
+      $('vidTitle').dataset.touched = '1';
+      $('vidTags').value = (j.tags || []).join(', ');
+      $('vidTags').dataset.touched = '1';
+      $('vidDesc').value = j.description || '';
+      $('vidDesc').dataset.touched = '1';
+      $('metaProvider').textContent = '생성 방식: ' + (j.provider || 'template');
+    } catch (e) {
+      alert('자동 작성 실패: ' + (e.message || e));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
+    }
+  });
+
   // ── 음악 생성 ─────────────────────────────────────────────
   $('generate').addEventListener('click', async () => {
     const btn = $('generate'), status = $('genStatus');

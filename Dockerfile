@@ -17,8 +17,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
 
-# 앱 소스 복사 (youtube.js 누락 시 서버가 시작 직후 크래시하므로 반드시 포함)
-COPY server.js youtube.js ./
+# 앱 소스 복사 (server.js가 require하는 모듈은 반드시 포함 — 누락 시 시작 크래시)
+COPY server.js youtube.js metadata.js ./
 COPY public ./public
 
 EXPOSE 5174
