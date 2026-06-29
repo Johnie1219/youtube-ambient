@@ -216,10 +216,22 @@ Dockerfile, docker-compose.yml  NAS/서버 배포용
 - `FFMPEG_PATH` — ffmpeg 실행 파일 경로 (지정 시 우선, 미지정 시 번들된 `ffmpeg-static` 사용. Docker는 `/usr/bin/ffmpeg`)
 - `BASIC_AUTH_USER`, `BASIC_AUTH_PASS` — 둘 다 설정하면 간단 Basic 인증 활성화 (외부 노출 시 권장)
 - `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` — 셋 다 설정하면 유튜브 업로드 활성화
+- `PEXELS_API_KEY` — 설정하면 **키워드 → 실사 영상** 기능 활성화 (무료 키: https://www.pexels.com/api/)
 - `METADATA_PROVIDER` — 메타데이터 생성기: `template`(기본·무료) / `claude` / `ollama`
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` — `METADATA_PROVIDER=claude`일 때 (모델 기본 `claude-haiku-4-5-20251001`)
 - `OLLAMA_URL`, `OLLAMA_MODEL` — `METADATA_PROVIDER=ollama`일 때 (NAS 로컬 AI, 예: `http://localhost:11434` / `llama3.2`)
 - `FONT_PATH` — 제목 오버레이용 폰트 (Docker는 `fonts-nanum` 자동 포함)
+
+## 키워드 → 실사 영상 배경 (Pexels)
+
+영상 섹션의 **🎬 영상 키워드**에 단어를 넣으면, 그 키워드에 맞는 **실제 촬영(실사) 영상**을 자동으로 찾아 배경으로 씁니다.
+- 무료 **Pexels API 키**가 필요합니다 (한 번만):
+  1. https://www.pexels.com/api/ 가입 후 키 복사
+  2. `docker-compose.yml`의 `PEXELS_API_KEY` 주석을 풀고 값 입력 → 컨테이너 재시작
+- **영어 키워드가 더 정확**합니다 (`city night drive`, `rain window`, `ocean waves` 등). 한글도 됩니다.
+- **미리보기** 버튼으로 어떤 영상이 잡히는지 먼저 확인할 수 있어요. 시드를 바꾸면 다른 영상이 잡힙니다.
+- 키가 없거나 결과가 없으면 자동으로 **테마 그라데이션 배경**으로 대체됩니다.
+- 영상 출처(Pexels·작가)는 메타데이터에 함께 저장됩니다.
 
 ## 제목·해시태그·설명 자동 작성 (AI)
 

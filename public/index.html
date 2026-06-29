@@ -113,11 +113,30 @@
   <section class="tile tile-parchment" id="video">
     <div class="inner">
       <h2 class="display-lg">배경 &amp; 영상</h2>
-      <p class="tagline">테마 배경을 자동 생성하거나 내 영상을 올리고, 제목·해시태그를 적어 MP4로 만듭니다.</p>
+      <p class="tagline">키워드를 적으면 어울리는 <b>실사 영상</b>을 찾아 배경으로 씁니다. 내 영상을 올리거나 테마 배경도 선택 가능.</p>
 
       <div class="grid">
         <label class="field full">
-          <span class="label">자동 배경 테마</span>
+          <span class="label">🎬 영상 키워드 (실사 영상)</span>
+          <div class="seed-row">
+            <input id="keyword" type="text" placeholder="예: city night drive, rain window, ocean, forest" />
+            <button id="previewStock" type="button" class="btn-utility" title="실사 영상 미리보기">미리보기</button>
+          </div>
+          <small class="hint" id="stockHint">키워드에 맞는 실제 촬영 영상을 자동으로 찾아 배경으로 사용합니다. <b>영어 키워드가 더 정확</b>해요.</small>
+          <div id="stockPreview" class="stock-preview hidden">
+            <img id="stockThumb" alt="미리보기" />
+            <small id="stockCredit" class="hint"></small>
+          </div>
+        </label>
+
+        <label class="field full">
+          <span class="label">또는 — 내 영상/이미지 (선택)</span>
+          <input id="media" type="file" accept="video/*,image/*" />
+          <small class="hint">올리면 이 파일을 키워드보다 우선 사용. 영상은 자동 루프, 이미지는 켄번스 줌.</small>
+        </label>
+
+        <label class="field full">
+          <span class="label">배경 테마 (키워드가 없을 때 사용)</span>
           <select id="theme">
             <option value="autumn_valley">🌳 포근한 숲</option>
             <option value="golden_sunset">🌇 황금 노을</option>
@@ -129,13 +148,7 @@
             <option value="lofi_dusk">🌆 로파이 더스크</option>
             <option value="neon_city">🌃 네온 시티</option>
           </select>
-          <small class="hint">파일을 안 올리면 이 테마로 배경을 자동 생성합니다(10초 주기로 은은하게 호흡, 음악 길이만큼 이어져 이음새 없음).</small>
-        </label>
-
-        <label class="field full">
-          <span class="label">또는 — 내 영상/이미지 (선택)</span>
-          <input id="media" type="file" accept="video/*,image/*" />
-          <small class="hint">올리면 이 파일을 우선 사용. 영상은 자동 루프, 이미지는 켄번스 줌.</small>
+          <small class="hint">키워드·파일이 모두 없을 때 이 그라데이션 테마로 배경을 자동 생성합니다.</small>
         </label>
 
         <label class="field full">

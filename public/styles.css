@@ -268,6 +268,12 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 }
 .conn-banner.hidden { display: none; }
 
+/* ── 실사 영상 미리보기 ──────────────────────────────────── */
+.stock-preview { margin-top: 10px; }
+.stock-preview.hidden { display: none; }
+.stock-preview img { width: 100%; max-width: 480px; border-radius: var(--r-lg); display: block; }
+.stock-preview small { display: block; margin-top: 6px; }
+
 /* ── 푸터 ────────────────────────────────────────────────── */
 .footer { background: var(--parchment); color: var(--ink-48); text-align: center; padding: 48px 22px; font-size: 12px; letter-spacing: -0.12px; }
 .build-info { display: inline-block; margin-top: 8px; opacity: 0.7; font-variant-numeric: tabular-nums; }

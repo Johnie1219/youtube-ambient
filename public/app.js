@@ -105,6 +105,26 @@
     finally { btn.disabled = false; btn.textContent = old; }
   });
 
+  // ── 실사 영상 미리보기 (키워드 → Pexels) ──────────────────
+  let stockConfigured = false;
+  $('previewStock').addEventListener('click', async () => {
+    const kw = $('keyword').value.trim();
+    if (!kw) { alert('키워드를 입력하세요.'); return; }
+    const btn = $('previewStock'), old = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const seed = parseInt($('seed').value, 10) || 1;
+      const resp = await fetch('/api/stock/search?keyword=' + encodeURIComponent(kw) + '&seed=' + seed);
+      const j = await resp.json();
+      if (!resp.ok) throw new Error(j.error || '검색 실패');
+      $('stockThumb').src = j.image || '';
+      $('stockCredit').textContent = '출처: Pexels · ' + (j.author || '') + (j.duration ? ' · ' + j.duration + '초' : '');
+      $('stockPreview').classList.remove('hidden');
+    } catch (e) {
+      alert('영상 미리보기 실패: ' + (e.message || e));
+    } finally { btn.disabled = false; btn.textContent = old; }
+  });
+
   // ── 음악 생성 ─────────────────────────────────────────────
   async function generateMusic() {
     const btn = $('generate'), status = $('genStatus');
@@ -154,6 +174,8 @@
     const media = $('media').files[0];
     if (media) fd.append('media', media);
     fd.append('theme', $('theme').value);
+    fd.append('keyword', $('keyword').value);
+    fd.append('seed', String(parseInt($('seed').value, 10) || 1));
     fd.append('preset', presetSel.value);
     fd.append('duration', String(audioDuration));
     fd.append('resolution', $('resolution').value);
@@ -376,8 +398,14 @@
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const j = await resp.json();
       banner.classList.add('hidden');
+      stockConfigured = !!j.stock;
+      if (!stockConfigured) {
+        $('stockHint').innerHTML = '⚠️ 실사 영상을 쓰려면 서버에 <b>PEXELS_API_KEY</b>가 필요해요(무료). ' +
+          '없으면 아래 테마 배경으로 자동 대체됩니다.';
+      }
       build.textContent = 'v' + (j.version || '?') +
         (j.youtube ? ' · 유튜브 연결됨' : '') +
+        (j.stock ? ' · 실사영상 연결됨' : '') +
         ' · 메타: ' + (j.metadataProvider || 'template');
     } catch (e) {
       detail.textContent = ' 현재 주소(' + location.host + ')에서 서버가 응답하지 않습니다. ' +

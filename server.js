@@ -18,13 +18,14 @@ const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const youtube = require('./youtube');
 const metadata = require('./metadata');
+const stock = require('./stock');
 
 // ffmpeg 경로: FFMPEG_PATH(예: Docker의 /usr/bin/ffmpeg)가 있으면 우선, 없으면 번들(ffmpeg-static)
 const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.29-3';
+const APP_VERSION = '2026.06.29-4';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -247,6 +248,7 @@ app.post(
         .slice(0, 30),
       theme: req.body.theme || null,
       preset: req.body.preset || null,
+      keyword: (req.body.keyword || '').toString().trim() || null,
       durationSec: Math.round(duration),
       resolution: resLabel,
       createdAt: Date.now(),
@@ -267,15 +269,12 @@ app.post(
     // 즉시 jobId 응답 → 클라이언트는 SSE로 진행률 구독
     res.json({ jobId });
 
-    let mediaKind = 'gradient';
-    if (media) {
-      if ((media.mimetype || '').startsWith('video')) mediaKind = 'video';
-      else if ((media.mimetype || '').startsWith('image')) mediaKind = 'image';
-    }
+    const keyword = (req.body.keyword || '').toString().trim();
+    const seedNum = parseInt(req.body.seed, 10) || 1;
 
-    // ── 2단계 렌더: ① 5초 배경 클립만 인코딩 → ② 무한 루프하며 오디오와 합치되 영상은 복사(재인코딩 X)
-    // 음악이 길어도 영상은 5초만 인코딩하므로 ARM NAS에서도 매우 빠름.
-    const LOOP_SEC = 5;
+    // ── 2단계 렌더: ① 짧은 배경 루프 클립만 인코딩 → ② 무한 루프하며 오디오와 합침(영상 복사)
+    // 음악이 길어도 배경은 짧게만 인코딩하므로 ARM NAS에서도 빠름.
+    // 그라데이션은 5초(이음새 없음), 실사 영상은 10초(컷 잦지 않게)로 인코딩.
     const basePath = path.join(UPLOADS, jobId + '_base.mp4');
     job.cleanup.push(basePath);
 
@@ -286,56 +285,79 @@ app.post(
       job.cleanup.forEach(safeUnlink);
     }
 
-    // ── PASS 1: 5초 배경 클립 ───────────────────────────────────
-    const c1 = ffmpeg();
-    if (mediaKind === 'video') {
-      c1.input(media.path); // 앞 5초만 사용(-t)
-    } else if (mediaKind === 'image') {
-      c1.input(media.path);
-    } else {
-      const theme = THEMES[req.body.theme] || THEMES.autumn_valley;
+    // ── PASS 1: 배경 루프 클립 인코딩(소스 종류에 맞춰) ──
+    function startPass1(srcKind, srcPath, loopSec) {
+      const c1 = ffmpeg();
+      if (srcKind === 'video' || srcKind === 'image') {
+        c1.input(srcPath);
+      } else {
+        const theme = THEMES[req.body.theme] || THEMES.autumn_valley;
+        c1
+          .input(
+            `gradients=s=640x360:c0=${theme.c0}:c1=${theme.c1}:` +
+              `x0=0:y0=0:x1=640:y1=360:d=${loopSec}:speed=${theme.speed}`
+          )
+          .inputOptions(['-f', 'lavfi']);
+      }
+
+      const vf = buildVideoFilter({ kind: srcKind, w, h, fps, duration: loopSec, loopSec });
+      let chain = vf;
+      const overlayText = (req.body.overlayText || '').toString().trim();
+      if (overlayText) {
+        const txtPath = path.join(UPLOADS, jobId + '_title.txt');
+        try {
+          fs.writeFileSync(txtPath, wrapText(overlayText, 16));
+          chain = vf + ',' + drawtextFilter(txtPath, h);
+          job.cleanup.push(txtPath);
+        } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
+      }
+
       c1
-        .input(
-          `gradients=s=640x360:c0=${theme.c0}:c1=${theme.c1}:` +
-            `x0=0:y0=0:x1=640:y1=360:d=${LOOP_SEC}:speed=${theme.speed}`
-        )
-        .inputOptions(['-f', 'lavfi']);
+        .complexFilter([`[0:v]${chain}[vout]`])
+        .outputOptions([
+          '-map', '[vout]',
+          '-an',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', String(crf),
+          '-pix_fmt', 'yuv420p',
+          '-profile:v', 'high',
+          '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
+          '-r', String(fps),
+          '-t', String(loopSec),
+        ])
+        .on('progress', (p) => {
+          const sec = timemarkToSeconds(p.timemark);
+          job.percent = Math.min(35, (sec / loopSec) * 35);
+          notify(job);
+        })
+        .on('end', runPass2)
+        .on('error', fail)
+        .save(basePath);
     }
 
-    const vf = buildVideoFilter({ kind: mediaKind, w, h, fps, duration: LOOP_SEC, loopSec: LOOP_SEC });
-    let chain = vf;
-    const overlayText = (req.body.overlayText || '').toString().trim();
-    if (overlayText) {
-      const txtPath = path.join(UPLOADS, jobId + '_title.txt');
-      try {
-        fs.writeFileSync(txtPath, wrapText(overlayText, 16));
-        chain = vf + ',' + drawtextFilter(txtPath, h);
-        job.cleanup.push(txtPath);
-      } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
+    // 배경 소스 선택: ① 업로드 파일 > ② 키워드(실사 스톡) > ③ 그라데이션 테마
+    if (media) {
+      const k = (media.mimetype || '').startsWith('image') ? 'image' : 'video';
+      startPass1(k, media.path, 5);
+    } else if (keyword && stock.isConfigured()) {
+      // 키워드 → Pexels 실사 영상 검색·다운로드. 실패하면 그라데이션으로 폴백.
+      stock
+        .search(keyword, { targetW: w, seed: seedNum })
+        .then((found) => {
+          if (!found) throw new Error('검색 결과 없음');
+          const stockPath = path.join(UPLOADS, jobId + '_stock.mp4');
+          job.cleanup.push(stockPath);
+          job.meta.stock = {
+            source: 'pexels', query: keyword,
+            author: found.author, authorUrl: found.authorUrl, pexelsUrl: found.pexelsUrl,
+          };
+          return stock.download(found.url, stockPath).then(() => startPass1('video', stockPath, 10));
+        })
+        .catch(() => startPass1('gradient', null, 5));
+    } else {
+      startPass1('gradient', null, 5);
     }
-
-    c1
-      .complexFilter([`[0:v]${chain}[vout]`])
-      .outputOptions([
-        '-map', '[vout]',
-        '-an',
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-crf', String(crf),
-        '-pix_fmt', 'yuv420p',
-        '-profile:v', 'high',
-        '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
-        '-r', String(fps),
-        '-t', String(LOOP_SEC),
-      ])
-      .on('progress', (p) => {
-        const sec = timemarkToSeconds(p.timemark);
-        job.percent = Math.min(35, (sec / LOOP_SEC) * 35);
-        notify(job);
-      })
-      .on('end', runPass2)
-      .on('error', fail)
-      .save(basePath);
 
     // ── PASS 2: 5초 클립을 무한 루프 + 오디오 합치기(영상 스트림 복사 → 빠름) ──
     function runPass2() {
@@ -501,12 +523,31 @@ app.post('/api/metadata/generate', async (req, res) => {
   }
 });
 
+// 키워드로 실사 영상 미리보기 (렌더 전에 어떤 영상이 잡히는지 확인)
+app.get('/api/stock/search', async (req, res) => {
+  if (!stock.isConfigured()) {
+    return res.status(400).json({ error: '실사 영상이 아직 연결되지 않았습니다. 서버에 PEXELS_API_KEY를 설정하세요.', needsSetup: true });
+  }
+  const keyword = (req.query.keyword || '').toString().trim();
+  if (!keyword) return res.status(400).json({ error: '키워드를 입력하세요.' });
+  const seed = parseInt(req.query.seed, 10) || 1;
+  try {
+    const found = await stock.search(keyword, { targetW: 1920, seed });
+    if (!found) return res.status(404).json({ error: '결과가 없습니다. 다른 키워드(영어가 더 정확)로 시도하세요.' });
+    // 직접 mp4 링크는 노출하지 않고, 미리보기 썸네일·출처만 전달
+    res.json({ image: found.image, author: found.author, pexelsUrl: found.pexelsUrl, duration: found.duration, query: keyword });
+  } catch (e) {
+    res.status(500).json({ error: e && e.message ? e.message : String(e) });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     version: APP_VERSION,
     ffmpeg: ffmpegPath,
     youtube: youtube.isConfigured(),
+    stock: stock.isConfigured(),
     metadataProvider: process.env.METADATA_PROVIDER || 'template',
   });
 });
