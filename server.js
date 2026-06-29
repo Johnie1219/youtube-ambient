@@ -152,7 +152,8 @@ const THEMES = {
   neon_city:      { c0: '0x0a1428', c1: '0x2a1a4a', speed: 0.007 }, // 나이트 시티: 네온 블루/퍼플
 };
 
-function buildVideoFilter({ kind, w, h, fps, duration }) {
+function buildVideoFilter({ kind, w, h, fps, duration, loopSec }) {
+  const period = loopSec || 10; // 배경 호흡/모션 주기(초) — 루프 클립 길이와 맞추면 이음새 없음
   if (kind === 'image') {
     const frames = Math.max(1, Math.ceil(duration * fps));
     // 살짝 크게 스케일 후 천천히 줌인(켄번스). zoompan은 입력 1프레임을 frames개로 늘린다.
@@ -168,7 +169,7 @@ function buildVideoFilter({ kind, w, h, fps, duration }) {
     // (eq 매프레임 sin + vignette)을 작은 프레임에서 처리한 뒤 목표 해상도로 업스케일.
     // → ARM NAS에서 인코딩 속도 대폭 향상(부드러운 그라데이션이라 확대해도 깨끗).
     return (
-      `eq=brightness='0.05*sin(2*PI*t/10)':saturation='1.06+0.10*sin(2*PI*t/10)':eval=frame,` +
+      `eq=brightness='0.05*sin(2*PI*t/${period})':saturation='1.06+0.10*sin(2*PI*t/${period})':eval=frame,` +
       `vignette,` +
       `scale=${w}:${h}:flags=bilinear,` +
       `fps=${fps},setsar=1,format=yuv420p`
@@ -267,31 +268,36 @@ app.post(
       else if ((media.mimetype || '').startsWith('image')) mediaKind = 'image';
     }
 
-    const cmd = ffmpeg();
+    // ── 2단계 렌더: ① 5초 배경 클립만 인코딩 → ② 무한 루프하며 오디오와 합치되 영상은 복사(재인코딩 X)
+    // 음악이 길어도 영상은 5초만 인코딩하므로 ARM NAS에서도 매우 빠름.
+    const LOOP_SEC = 5;
+    const basePath = path.join(UPLOADS, jobId + '_base.mp4');
+    job.cleanup.push(basePath);
 
-    // 입력 0: 영상 소스
+    function fail(err) {
+      job.status = 'error';
+      job.error = err && err.message ? err.message : String(err);
+      notify(job);
+      job.cleanup.forEach(safeUnlink);
+    }
+
+    // ── PASS 1: 5초 배경 클립 ───────────────────────────────────
+    const c1 = ffmpeg();
     if (mediaKind === 'video') {
-      cmd.input(media.path).inputOptions(['-stream_loop', '-1']); // 음악 길이까지 무한 루프
+      c1.input(media.path); // 앞 5초만 사용(-t)
     } else if (mediaKind === 'image') {
-      // 단일 이미지 입력 → zoompan이 직접 프레임을 생성(켄번스). -loop 금지.
-      cmd.input(media.path);
+      c1.input(media.path);
     } else {
-      // 자동 테마 배경: 작은 해상도(640x360)로 생성 → vf에서 목표 해상도로 업스케일(ARM 속도↑).
       const theme = THEMES[req.body.theme] || THEMES.autumn_valley;
-      cmd
+      c1
         .input(
           `gradients=s=640x360:c0=${theme.c0}:c1=${theme.c1}:` +
-            `x0=0:y0=0:x1=640:y1=360:d=${Math.ceil(duration)}:speed=${theme.speed}`
+            `x0=0:y0=0:x1=640:y1=360:d=${LOOP_SEC}:speed=${theme.speed}`
         )
         .inputOptions(['-f', 'lavfi']);
     }
 
-    // 입력 1: 음악
-    cmd.input(audio.path);
-
-    const vf = buildVideoFilter({ kind: mediaKind, w, h, fps, duration });
-
-    // (선택) 제목 텍스트 오버레이 — overlayText가 있으면 drawtext 추가
+    const vf = buildVideoFilter({ kind: mediaKind, w, h, fps, duration: LOOP_SEC, loopSec: LOOP_SEC });
     let chain = vf;
     const overlayText = (req.body.overlayText || '').toString().trim();
     if (overlayText) {
@@ -303,49 +309,62 @@ app.post(
       } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
     }
 
-    cmd
+    c1
       .complexFilter([`[0:v]${chain}[vout]`])
       .outputOptions([
         '-map', '[vout]',
-        '-map', '1:a:0',
+        '-an',
         '-c:v', 'libx264',
-        '-preset', 'ultrafast', // ARM NAS(GPU 없음) 인코딩 최우선 속도
+        '-preset', 'ultrafast',
         '-crf', String(crf),
         '-pix_fmt', 'yuv420p',
         '-profile:v', 'high',
-        '-level', '4.2',
-        '-g', String(fps * 2),
+        '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
         '-r', String(fps),
-        '-c:a', 'aac',
-        '-b:a', '320k',
-        '-ar', '48000',
-        '-ac', '2',
-        '-t', String(duration),
-        '-shortest',
-        '-movflags', '+faststart',
+        '-t', String(LOOP_SEC),
       ])
-      .on('start', (line) => {
-        job.commandLine = line;
-      })
       .on('progress', (p) => {
         const sec = timemarkToSeconds(p.timemark);
-        job.percent = Math.min(99, (sec / duration) * 100);
+        job.percent = Math.min(35, (sec / LOOP_SEC) * 35);
         notify(job);
       })
-      .on('end', () => {
-        job.status = 'done';
-        job.percent = 100;
-        writeMeta(jobId, job.meta); // NAS에 메타데이터 저장(영상은 OUTPUT_DIR에 영구 보존)
-        notify(job);
-        job.cleanup.forEach(safeUnlink); // 임시 업로드(오디오/영상)만 정리, 결과물은 유지
-      })
-      .on('error', (err) => {
-        job.status = 'error';
-        job.error = err && err.message ? err.message : String(err);
-        notify(job);
-        job.cleanup.forEach(safeUnlink);
-      })
-      .save(outFile);
+      .on('end', runPass2)
+      .on('error', fail)
+      .save(basePath);
+
+    // ── PASS 2: 5초 클립을 무한 루프 + 오디오 합치기(영상 스트림 복사 → 빠름) ──
+    function runPass2() {
+      ffmpeg()
+        .input(basePath)
+        .inputOptions(['-stream_loop', '-1'])
+        .input(audio.path)
+        .outputOptions([
+          '-map', '0:v:0',
+          '-map', '1:a:0',
+          '-c:v', 'copy', // 재인코딩 없음 → 길이와 무관하게 빠름
+          '-c:a', 'aac',
+          '-b:a', '320k',
+          '-ar', '48000',
+          '-ac', '2',
+          '-t', String(duration),
+          '-shortest',
+          '-movflags', '+faststart',
+        ])
+        .on('progress', (p) => {
+          const sec = timemarkToSeconds(p.timemark);
+          job.percent = Math.min(99, 35 + (sec / duration) * 64);
+          notify(job);
+        })
+        .on('end', () => {
+          job.status = 'done';
+          job.percent = 100;
+          writeMeta(jobId, job.meta);
+          notify(job);
+          job.cleanup.forEach(safeUnlink); // 임시 업로드 + 5초 base 클립 정리(결과물은 유지)
+        })
+        .on('error', fail)
+        .save(outFile);
+    }
   }
 );
 
