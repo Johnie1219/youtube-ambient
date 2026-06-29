@@ -1,5 +1,5 @@
 /* 서비스 워커 — 앱 셸 캐시(오프라인/빠른 실행). HTTPS 또는 localhost에서만 등록됨. */
-const CACHE = 'ambient-v2';
+const CACHE = 'ambient-v3';
 const SHELL = [
   '/',
   '/index.html',
