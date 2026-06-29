@@ -11,6 +11,7 @@
   // 상태
   let wavBlob = null, wavUrl = null, audioDuration = 0;
   let ytConfigured = false;
+  let sourceMode = 'keyword'; // 'keyword'(실사 영상) | 'upload'(내 파일)
 
   const THEME_LABELS = {
     autumn_valley: '포근한 숲',
@@ -126,6 +127,18 @@
     } finally { btn.disabled = false; btn.textContent = old; }
   });
 
+  // ── 영상 소스 토글 (키워드 ↔ 내 파일) ────────────────────
+  document.querySelectorAll('#sourceToggle .seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sourceMode = btn.dataset.src;
+      document.querySelectorAll('#sourceToggle .seg-btn').forEach((b) =>
+        b.classList.toggle('active', b === btn));
+      $('keywordRow').classList.toggle('hidden', sourceMode !== 'keyword');
+      $('uploadRow').classList.toggle('hidden', sourceMode !== 'upload');
+      if (sourceMode === 'keyword') { try { $('media').value = ''; } catch (_) {} }
+    });
+  });
+
   // ── 음악 생성 ─────────────────────────────────────────────
   async function generateMusic() {
     const btn = $('generate'), status = $('genStatus');
@@ -172,7 +185,7 @@
     const btn = $('render'), status = $('renderStatus');
     const fd = new FormData();
     fd.append('audio', wavBlob, 'ambient.wav');
-    const media = $('media').files[0];
+    const media = sourceMode === 'upload' ? $('media').files[0] : null;
     if (media) fd.append('media', media);
     fd.append('theme', $('theme').value);
     fd.append('keyword', $('keyword').value);

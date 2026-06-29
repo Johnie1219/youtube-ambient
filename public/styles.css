@@ -268,6 +268,29 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 }
 .conn-banner.hidden { display: none; }
 
+/* ── 영상 소스 토글(세그먼트) ────────────────────────────── */
+.seg { display: flex; gap: 8px; margin: 8px 0 10px; flex-wrap: wrap; }
+.seg-btn {
+  flex: 1 1 0; min-width: 160px;
+  padding: 14px 16px; border-radius: var(--r-lg);
+  border: 1px solid var(--hairline); background: #fff; color: var(--ink);
+  font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.seg-btn.active { background: var(--blue, #0066cc); color: #fff; border-color: transparent; }
+.src-row { margin-top: 6px; }
+.src-row.hidden { display: none; }
+
+/* ── 고급 설정(접힘) ─────────────────────────────────────── */
+.advanced { margin-top: 28px; border-top: 1px solid var(--hairline); padding-top: 14px; }
+.advanced > summary {
+  cursor: pointer; font-weight: 600; color: var(--ink-48, #666);
+  font-size: 14px; padding: 8px 0; list-style: revert;
+}
+.advanced[open] > summary { margin-bottom: 12px; }
+
+/* 큰 기본 버튼(메인 한 방) */
+.btn-big { font-size: 17px; padding: 16px 24px; width: 100%; }
+
 /* ── 실사 영상 미리보기 ──────────────────────────────────── */
 .stock-preview { margin-top: 10px; }
 .stock-preview.hidden { display: none; }
