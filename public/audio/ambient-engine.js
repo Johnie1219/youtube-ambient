@@ -90,7 +90,136 @@
       ],
       scale: ['D4', 'F4', 'G4', 'A4', 'C5', 'D5', 'F5'],
     },
+
+    // ── 그루비/플레이리스트 모드(드럼+베이스+코드 스탭) ──────────────
+    city_drive: {
+      name: '🚗 시티 드라이브 (둠칫 그루브)',
+      desc: '드럼·펑키 베이스가 통통 튀는 신나는 시티팝 그루브',
+      mode: 'groovy',
+      bpm: 104,
+      reverbWet: 0.16,
+      chords: [
+        { stab: ['E4', 'G4', 'B4', 'D5'], bass: 'C2' }, // Cmaj7
+        { stab: ['C4', 'E4', 'G4', 'B4'], bass: 'A1' }, // Am7
+        { stab: ['F4', 'A4', 'C5', 'E5'], bass: 'D2' }, // Dm7
+        { stab: ['F4', 'B4', 'D5'], bass: 'G1' },       // G7
+      ],
+      scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6'],
+    },
+    funky_sunset: {
+      name: '🌆 펑키 선셋 (둠칫 그루브)',
+      desc: '나른하지만 그루비한 저녁 펑크/소울',
+      mode: 'groovy',
+      bpm: 100,
+      reverbWet: 0.18,
+      chords: [
+        { stab: ['A3', 'C4', 'E4', 'G4'], bass: 'A1' }, // Am7
+        { stab: ['D4', 'F4', 'A4', 'C5'], bass: 'D2' }, // Dm7
+        { stab: ['E4', 'G4', 'B4', 'D5'], bass: 'E1' }, // Em7
+        { stab: ['F4', 'A4', 'C5', 'E5'], bass: 'F1' }, // Fmaj7
+      ],
+      scale: ['A4', 'C5', 'D5', 'E5', 'G5', 'A5', 'C6'],
+    },
   };
+
+  // 그루비 모드: 드럼(킥/스네어/하이햇) + 펑키 베이스 + 코드 스탭 + 스파스 리드.
+  // Tone.Offline 콜백 안에서 호출 → 생성되는 노드들이 오프라인 컨텍스트에 바인딩됨.
+  // 사용하는 신스(Membrane/Noise/Mono/PolySynth)는 모두 비-워클릿이라 오프라인 안전.
+  function buildGroovy(reverb, rng, duration, bpm, preset) {
+    const T = Tone;
+    const drumBus = new T.Gain(0.9).connect(reverb);
+
+    const kick = new T.MembraneSynth({
+      pitchDecay: 0.03, octaves: 6,
+      envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 }, volume: -5,
+    }).connect(drumBus);
+
+    const snare = new T.NoiseSynth({
+      noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 }, volume: -13,
+    });
+    const snareFilter = new T.Filter(1500, 'highpass').connect(drumBus);
+    snare.connect(snareFilter);
+
+    const hat = new T.NoiseSynth({
+      noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0 }, volume: -22,
+    });
+    const hatFilter = new T.Filter(7000, 'highpass').connect(drumBus);
+    hat.connect(hatFilter);
+
+    const bass = new T.MonoSynth({
+      oscillator: { type: 'sawtooth' },
+      filter: { Q: 2, type: 'lowpass' },
+      filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.35, release: 0.2, baseFrequency: 120, octaves: 2.6 },
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.2 }, volume: -7,
+    }).connect(reverb);
+
+    const chordSynth = new T.PolySynth(T.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.01, decay: 0.32, sustain: 0.18, release: 0.3 }, volume: -15,
+    }).connect(reverb);
+    chordSynth.maxPolyphony = 16;
+
+    const lead = new T.Synth({
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 }, volume: -19,
+    }).connect(reverb);
+
+    const spb = 60 / bpm, bar = spb * 4, eighth = spb / 2;
+    const numBars = Math.ceil(duration / bar);
+    const chords = preset.chords, scale = preset.scale;
+    const fits = (t) => t < duration - 0.05;
+
+    function bassTriplet(root) {
+      const f = T.Frequency(root);
+      return { root: root, oct: f.transpose(12).toNote(), fifth: f.transpose(7).toNote() };
+    }
+
+    for (let b = 0; b < numBars; b++) {
+      const t0 = b * bar;
+      if (t0 >= duration) break;
+      const chord = chords[b % chords.length];
+      const bn = bassTriplet(chord.bass);
+
+      // 킥: 4-on-the-floor
+      for (let beat = 0; beat < 4; beat++) {
+        const t = t0 + beat * spb;
+        if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, 0.92);
+      }
+      // 스네어: 2·4박
+      for (const beat of [1, 3]) {
+        const t = t0 + beat * spb;
+        if (fits(t)) snare.triggerAttackRelease(0.16, t, 0.85);
+      }
+      // 하이햇: 8분, 오프비트 강세("칫")
+      for (let e = 0; e < 8; e++) {
+        const t = t0 + e * eighth;
+        if (fits(t)) hat.triggerAttackRelease(0.03, t, e % 2 ? 0.65 : 0.35);
+      }
+      // 베이스: 펑키 8분 패턴
+      const pat = [bn.root, null, bn.root, bn.oct, null, bn.fifth, bn.root, null];
+      for (let e = 0; e < 8; e++) {
+        const n = pat[e], t = t0 + e * eighth;
+        if (n && fits(t)) bass.triggerAttackRelease(n, eighth * 0.9, t, 0.85);
+      }
+      // 코드 스탭: 1박 + 2·4박의 뒷박(엇박)
+      if (fits(t0)) chordSynth.triggerAttackRelease(chord.stab, 0.18, t0, 0.5);
+      for (const off of [1.5, 3.5]) {
+        const t = t0 + off * spb;
+        if (fits(t)) chordSynth.triggerAttackRelease(chord.stab, 0.22, t, 0.55);
+      }
+      // 리드: 2마디마다 스파스 리프
+      if (b % 2 === 1) {
+        let prev = -1;
+        for (let k = 0; k < 3; k++) {
+          let t = t0 + (4 + k) * eighth;
+          if (t <= prev) t = prev + 0.05;
+          const note = scale[Math.floor(rng() * scale.length)];
+          if (fits(t)) lead.triggerAttackRelease(note, eighth, t, 0.4 + rng() * 0.2);
+          prev = t;
+        }
+      }
+    }
+  }
 
   async function render(opts, onStage) {
     if (typeof Tone === 'undefined') {
@@ -147,6 +276,10 @@
       master.gain.setValueAtTime(targetLevel, Math.max(fadeIn, duration - fadeOut));
       master.gain.linearRampToValueAtTime(0.0001, duration);
 
+      if (preset.mode === 'groovy') {
+        // ── 그루비/플레이리스트 모드 ───────────────────────────────
+        buildGroovy(reverb, rng, duration, bpm, preset);
+      } else {
       // ── 악기 ─────────────────────────────────────────────────────
       // 패드: 따뜻한 fatsine, 느린 어택/릴리스 + 무빙 로우패스 + 코러스
       let pad, padFilter, padLfo, chorus;
@@ -247,6 +380,7 @@
           prev = at;
         }
       }
+      } // end else (ambient mode)
     }, duration, 2, sampleRate);
 
     if (onStage) onStage('인코딩 중…');
