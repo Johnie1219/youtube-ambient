@@ -1,8 +1,15 @@
 node_modules
 .git
+.github
 .gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
 output
 tmp
+scratch
 *.log
 .DS_Store
 README.md
+android
+scripts

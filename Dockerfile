@@ -18,9 +18,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
 
-# 앱 소스 복사 (server.js가 require하는 모듈은 반드시 포함 — 누락 시 시작 크래시)
-COPY server.js youtube.js metadata.js stock.js ./
-COPY public ./public
+# 앱 소스 전체 복사. (.dockerignore가 node_modules·android·docs 등을 제외)
+# 개별 COPY로 새 모듈을 빠뜨려 컨테이너가 크래시하던 문제를 원천 차단.
+COPY . ./
 
 EXPOSE 5174
 
