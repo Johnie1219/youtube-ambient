@@ -1,0 +1,30 @@
+plugins {
+  id 'com.android.application'
+}
+
+android {
+  namespace 'com.aimusic.studio'
+  compileSdk 34
+
+  defaultConfig {
+    applicationId "com.aimusic.studio"
+    minSdk 24
+    targetSdk 34
+    versionCode 1
+    versionName "1.0"
+  }
+
+  buildTypes {
+    debug {
+      // 디버그 키로 서명되어 사이드로드(직접 설치) 가능
+    }
+    release {
+      minifyEnabled false
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
