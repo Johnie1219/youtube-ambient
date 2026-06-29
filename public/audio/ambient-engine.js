@@ -151,7 +151,7 @@
     lofi_rain: {
       name: '🌧️ 로파이 (Lo-fi Chill)',
       desc: '나른한 로파이 힙합 비트와 재지한 코드',
-      mode: 'groovy', bpm: 82, reverbWet: 0.24,
+      mode: 'groovy', bpm: 82, reverbWet: 0.24, swing: 0.62,
       chords: [
         { stab: ['A3', 'C4', 'E4', 'G4'], bass: 'F1' }, // Fmaj7
         { stab: ['G3', 'B3', 'D4', 'F4'], bass: 'E1' }, // Em7
@@ -221,6 +221,16 @@
     const chords = preset.chords, scale = preset.scale;
     const fits = (t) => t < duration - 0.05;
 
+    // 스윙(셔플) 비율: 0.5=정박, 클수록 오프비트가 뒤로 밀려 "그루비"해짐.
+    // 로파이는 깊게, 시티팝은 가볍게. preset.swing로 덮어쓸 수 있음.
+    const swing = preset.swing != null ? preset.swing : 0.55;
+    // 8분음표 인덱스 e(0..7)의 바 내 시작 시간 — 오프비트(홀수)를 스윙만큼 지연.
+    const eighthAt = (t0, e) => t0 + Math.floor(e / 2) * spb + (e % 2 ? spb * swing : 0);
+    // 미세 타이밍 흔들림(±ms) — 기계적이지 않게. 간격(>=eighth)보다 훨씬 작아 순서는 유지됨.
+    const hz = (ms) => (rng() * 2 - 1) * (ms / 1000);
+    // 벨로시티 휴머나이즈
+    const vh = (base, amt) => Math.max(0.05, Math.min(1, base + (rng() * 2 - 1) * amt));
+
     function bassTriplet(root) {
       const f = T.Frequency(root);
       return { root: root, oct: f.transpose(12).toNote(), fifth: f.transpose(7).toNote() };
@@ -231,42 +241,68 @@
       if (t0 >= duration) break;
       const chord = chords[b % chords.length];
       const bn = bassTriplet(chord.bass);
+      const intro = b < 2;                 // 인트로 2마디: 드럼 빼고 코드·베이스로 빌드업
+      const fill = !intro && b % 4 === 3;  // 4마디마다 마지막 마디에 필인
 
-      // 킥: 4-on-the-floor
-      for (let beat = 0; beat < 4; beat++) {
-        const t = t0 + beat * spb;
-        if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, 0.92);
+      // 킥: 4-on-the-floor (인트로 제외). 필 마디는 4박째를 비워 필인에 공간.
+      if (!intro) {
+        for (let beat = 0; beat < 4; beat++) {
+          if (fill && beat === 3) continue;
+          const t = t0 + beat * spb + hz(6);
+          if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, vh(0.92, 0.05));
+        }
       }
-      // 스네어: 2·4박
-      for (const beat of [1, 3]) {
-        const t = t0 + beat * spb;
-        if (fits(t)) snare.triggerAttackRelease(0.16, t, 0.85);
+      // 스네어: 2·4박 + 고스트 스네어(엇박, 아주 약하게)로 펑크 그루브
+      if (!intro && !fill) {
+        for (const beat of [1, 3]) {
+          const t = t0 + beat * spb + hz(7);
+          if (fits(t)) snare.triggerAttackRelease(0.16, t, vh(0.85, 0.06));
+        }
+        // 고스트: 3박 직전 16분 위치
+        const tg = t0 + 2.75 * spb + hz(5);
+        if (fits(tg)) snare.triggerAttackRelease(0.05, tg, 0.18 + rng() * 0.1);
       }
-      // 하이햇: 8분, 오프비트 강세("칫")
-      for (let e = 0; e < 8; e++) {
-        const t = t0 + e * eighth;
-        if (fits(t)) hat.triggerAttackRelease(0.03, t, e % 2 ? 0.65 : 0.35);
+      // 하이햇: 8분, 오프비트 강세("칫"). 스윙 적용.
+      if (!intro) {
+        for (let e = 0; e < 8; e++) {
+          const t = eighthAt(t0, e) + hz(4);
+          if (fits(t)) hat.triggerAttackRelease(0.03, t, vh(e % 2 ? 0.65 : 0.35, 0.08));
+        }
       }
-      // 베이스: 펑키 8분 패턴
-      const pat = [bn.root, null, bn.root, bn.oct, null, bn.fifth, bn.root, null];
-      for (let e = 0; e < 8; e++) {
-        const n = pat[e], t = t0 + e * eighth;
-        if (n && fits(t)) bass.triggerAttackRelease(n, eighth * 0.9, t, 0.85);
+      // 필인: 4박째를 16분 스네어 롤로 채워 다음 섹션으로 밀어줌
+      if (fill) {
+        for (let k = 0; k < 4; k++) {
+          const t = t0 + (3 + k * 0.25) * spb + hz(4);
+          if (fits(t)) snare.triggerAttackRelease(0.07, t, 0.4 + k * 0.16);
+        }
+        const tk = t0 + 3 * spb;
+        if (fits(tk)) kick.triggerAttackRelease('C1', 0.18, tk, 0.9);
       }
-      // 코드 스탭: 1박 + 2·4박의 뒷박(엇박)
-      if (fits(t0)) chordSynth.triggerAttackRelease(chord.stab, 0.18, t0, 0.5);
+      // 베이스: 펑키 8분 패턴 (스윙 적용). 인트로엔 루트만 길게.
+      if (intro) {
+        if (fits(t0)) bass.triggerAttackRelease(bn.root, bar * 0.95, t0 + hz(4), 0.7);
+      } else {
+        const pat = [bn.root, null, bn.root, bn.oct, null, bn.fifth, bn.root, null];
+        for (let e = 0; e < 8; e++) {
+          const n = pat[e];
+          const t = eighthAt(t0, e) + hz(5);
+          if (n && fits(t)) bass.triggerAttackRelease(n, eighth * 0.9, t, vh(0.85, 0.07));
+        }
+      }
+      // 코드 스탭: 1박 + 2·4박의 뒷박(엇박). 인트로는 더 부드럽게.
+      if (fits(t0)) chordSynth.triggerAttackRelease(chord.stab, 0.18, t0 + hz(6), intro ? 0.4 : vh(0.5, 0.08));
       for (const off of [1.5, 3.5]) {
-        const t = t0 + off * spb;
-        if (fits(t)) chordSynth.triggerAttackRelease(chord.stab, 0.22, t, 0.55);
+        const t = t0 + off * spb + hz(6);
+        if (fits(t)) chordSynth.triggerAttackRelease(chord.stab, 0.22, t, vh(0.55, 0.08));
       }
-      // 리드: 2마디마다 스파스 리프
-      if (b % 2 === 1) {
+      // 리드: 2마디마다 스파스 리프 (인트로 제외). 스윙 그리드 위에 얹음.
+      if (!intro && b % 2 === 1) {
         let prev = -1;
         for (let k = 0; k < 3; k++) {
-          let t = t0 + (4 + k) * eighth;
+          let t = eighthAt(t0, 4 + k) + hz(5);
           if (t <= prev) t = prev + 0.05;
           const note = scale[Math.floor(rng() * scale.length)];
-          if (fits(t)) lead.triggerAttackRelease(note, eighth, t, 0.4 + rng() * 0.2);
+          if (fits(t)) lead.triggerAttackRelease(note, eighth, t, vh(0.5, 0.12));
           prev = t;
         }
       }

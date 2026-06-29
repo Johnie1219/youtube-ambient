@@ -18,6 +18,12 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- 연결 자가진단 배너 (서버에 닿지 못하면 표시) -->
+  <div id="connBanner" class="conn-banner hidden">
+    <b>서버에 연결할 수 없어요.</b>
+    <span id="connDetail"></span>
+  </div>
+
   <!-- 글로벌 나브 -->
   <nav class="global-nav">
     <span class="brand">🎵 AI Music Studio</span>
@@ -212,6 +218,7 @@
 
   <footer class="footer">
     로컬·NAS에서 동작 · 음악은 브라우저에서 생성 · 합치기는 ffmpeg · 유튜브 자동 업로드 지원
+    <br /><span id="buildInfo" class="build-info">버전 확인 중…</span>
   </footer>
 
   <!-- iOS 설치 안내 -->

@@ -357,6 +357,31 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
-  // 시작 시 갤러리 로드
+  // ── 연결 자가진단 + 버전 표시 ────────────────────────────────
+  // 서버에 닿으면 푸터에 빌드 버전을 보여줘 "업데이트 반영"을 눈으로 확인.
+  // 닿지 못하면(=NAS/컨테이너 다운, 잘못된 주소) 흰 화면 대신 친절한 배너.
+  async function checkHealth() {
+    const banner = $('connBanner'), detail = $('connDetail'), build = $('buildInfo');
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      const resp = await fetch('/api/health', { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const j = await resp.json();
+      banner.classList.add('hidden');
+      build.textContent = 'v' + (j.version || '?') +
+        (j.youtube ? ' · 유튜브 연결됨' : '') +
+        ' · 메타: ' + (j.metadataProvider || 'template');
+    } catch (e) {
+      detail.textContent = ' 현재 주소(' + location.host + ')에서 서버가 응답하지 않습니다. ' +
+        'NAS 컨테이너가 켜져 있는지, 주소에 포트(:8443)가 맞는지 확인하세요.';
+      banner.classList.remove('hidden');
+      build.textContent = '서버 연결 안됨';
+    }
+  }
+
+  // 시작 시 연결 확인 + 갤러리 로드
+  checkHealth();
   loadGallery();
 })();

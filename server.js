@@ -23,6 +23,9 @@ const metadata = require('./metadata');
 const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
+// 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
+const APP_VERSION = '2026.06.29-2';
+
 const app = express();
 const PORT = process.env.PORT || 5174;
 const HOST = process.env.HOST || '0.0.0.0'; // 모든 인터페이스 → LAN/원격 접속 허용
@@ -200,10 +203,12 @@ function wrapText(text, perLine) {
 
 function drawtextFilter(txtPath, h) {
   // textfile 사용 → 텍스트 이스케이프 불필요. 상단 가운데, 반투명 박스.
+  // 외곽선(borderw) + 그림자(shadow)로 어떤 배경 위에서도 또렷하게(플레이리스트 톤).
   return (
     `drawtext=fontfile=${FONT_PATH}:textfile=${txtPath}:` +
     `fontcolor=white:fontsize=${Math.round(h / 14)}:line_spacing=14:` +
-    `box=1:boxcolor=black@0.35:boxborderw=28:x=(w-text_w)/2:y=h*0.10`
+    `borderw=2:bordercolor=black@0.55:shadowcolor=black@0.5:shadowx=2:shadowy=3:` +
+    `box=1:boxcolor=black@0.32:boxborderw=28:x=(w-text_w)/2:y=h*0.10`
   );
 }
 
@@ -499,6 +504,7 @@ app.post('/api/metadata/generate', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
+    version: APP_VERSION,
     ffmpeg: ffmpegPath,
     youtube: youtube.isConfigured(),
     metadataProvider: process.env.METADATA_PROVIDER || 'template',
