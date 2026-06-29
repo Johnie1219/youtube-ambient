@@ -164,12 +164,13 @@ function buildVideoFilter({ kind, w, h, fps, duration }) {
     );
   }
   if (kind === 'gradient') {
-    // 자동 테마 배경: gradients 소스가 이미 WxH로 생성되므로 스케일 불필요.
-    // 색을 천천히 흐르게(소스 speed) + 10초 주기의 은은한 밝기/채도 호흡 + 비네팅.
-    // sin은 매 프레임 평가되어야 하므로 eq에 eval=frame 지정(기본은 init이라 정지함).
+    // 자동 테마 배경: gradients를 작게 생성(서버 입력 640x360)했으므로 무거운 픽셀 연산
+    // (eq 매프레임 sin + vignette)을 작은 프레임에서 처리한 뒤 목표 해상도로 업스케일.
+    // → ARM NAS에서 인코딩 속도 대폭 향상(부드러운 그라데이션이라 확대해도 깨끗).
     return (
       `eq=brightness='0.05*sin(2*PI*t/10)':saturation='1.06+0.10*sin(2*PI*t/10)':eval=frame,` +
       `vignette,` +
+      `scale=${w}:${h}:flags=bilinear,` +
       `fps=${fps},setsar=1,format=yuv420p`
     );
   }
@@ -222,7 +223,7 @@ app.post(
     const res4k = String(req.body.resolution).toLowerCase() === '4k';
     const w = res4k ? 3840 : 1920;
     const h = res4k ? 2160 : 1080;
-    const crf = res4k ? 20 : 18;
+    const crf = res4k ? 23 : 20; // 약간 높여 ARM에서 더 빠르게(배경 영상엔 화질 충분)
 
     const jobId = crypto.randomBytes(8).toString('hex');
     const outFile = path.join(OUTPUTS, jobId + '.mp4');
@@ -275,12 +276,12 @@ app.post(
       // 단일 이미지 입력 → zoompan이 직접 프레임을 생성(켄번스). -loop 금지.
       cmd.input(media.path);
     } else {
-      // 자동 테마 배경: 선택한 테마의 2색 그라데이션을 음악 길이만큼 연속 생성(이음새 없음).
+      // 자동 테마 배경: 작은 해상도(640x360)로 생성 → vf에서 목표 해상도로 업스케일(ARM 속도↑).
       const theme = THEMES[req.body.theme] || THEMES.autumn_valley;
       cmd
         .input(
-          `gradients=s=${w}x${h}:c0=${theme.c0}:c1=${theme.c1}:` +
-            `x0=0:y0=0:x1=${w}:y1=${h}:d=${Math.ceil(duration)}:speed=${theme.speed}`
+          `gradients=s=640x360:c0=${theme.c0}:c1=${theme.c1}:` +
+            `x0=0:y0=0:x1=640:y1=360:d=${Math.ceil(duration)}:speed=${theme.speed}`
         )
         .inputOptions(['-f', 'lavfi']);
     }
@@ -308,7 +309,7 @@ app.post(
         '-map', '[vout]',
         '-map', '1:a:0',
         '-c:v', 'libx264',
-        '-preset', 'medium',
+        '-preset', 'veryfast', // ARM NAS(GPU 없음)에서 인코딩 속도 우선
         '-crf', String(crf),
         '-pix_fmt', 'yuv420p',
         '-profile:v', 'high',
