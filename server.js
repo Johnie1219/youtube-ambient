@@ -220,10 +220,10 @@ app.post(
 
     const duration = Math.max(1, parseFloat(req.body.duration) || 60);
     const fps = parseInt(req.body.fps, 10) === 60 ? 60 : 30;
-    const res4k = String(req.body.resolution).toLowerCase() === '4k';
-    const w = res4k ? 3840 : 1920;
-    const h = res4k ? 2160 : 1080;
-    const crf = res4k ? 23 : 20; // 약간 높여 ARM에서 더 빠르게(배경 영상엔 화질 충분)
+    const resv = String(req.body.resolution).toLowerCase();
+    let w = 1920, h = 1080, crf = 20, resLabel = '1080p';
+    if (resv === '4k') { w = 3840; h = 2160; crf = 23; resLabel = '4k'; }
+    else if (resv === '720p') { w = 1280; h = 720; crf = 20; resLabel = '720p'; }
 
     const jobId = crypto.randomBytes(8).toString('hex');
     const outFile = path.join(OUTPUTS, jobId + '.mp4');
@@ -242,7 +242,7 @@ app.post(
       theme: req.body.theme || null,
       preset: req.body.preset || null,
       durationSec: Math.round(duration),
-      resolution: res4k ? '4k' : '1080p',
+      resolution: resLabel,
       createdAt: Date.now(),
       youtube: null,
     };
@@ -309,7 +309,7 @@ app.post(
         '-map', '[vout]',
         '-map', '1:a:0',
         '-c:v', 'libx264',
-        '-preset', 'veryfast', // ARM NAS(GPU 없음)에서 인코딩 속도 우선
+        '-preset', 'ultrafast', // ARM NAS(GPU 없음) 인코딩 최우선 속도
         '-crf', String(crf),
         '-pix_fmt', 'yuv420p',
         '-profile:v', 'high',
