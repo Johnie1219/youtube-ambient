@@ -10,6 +10,8 @@ import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -37,7 +39,15 @@ public class MainActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setSupportZoom(false);
 
-        web.setWebViewClient(new WebViewClient()); // 링크를 앱 내부에서 열기
+        web.setWebViewClient(new WebViewClient() {
+            // 메인 페이지 로드 실패 시 흰 화면 대신 원인/재시도 안내를 보여준다.
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request != null && request.isForMainFrame()) {
+                    showError();
+                }
+            }
+        });
         web.setWebChromeClient(new WebChromeClient());
 
         // http(s) 다운로드(MP4 등)는 안드로이드 다운로드 매니저로 저장
@@ -65,6 +75,19 @@ public class MainActivity extends Activity {
 
         setContentView(web);
         web.loadUrl(getString(R.string.app_url));
+    }
+
+    private void showError() {
+        String url = getString(R.string.app_url);
+        String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+                + "</head><body style=\"font-family:sans-serif;background:#111;color:#eee;padding:28px;line-height:1.6\">"
+                + "<h2>연결할 수 없어요</h2>"
+                + "<p>주소: <b>" + url + "</b></p>"
+                + "<p>휴대폰의 <b>Tailscale</b>가 켜져 있는지, NAS의 컨테이너가 실행 중인지 확인하세요.</p>"
+                + "<p style=\"margin-top:20px\"><a href=\"" + url + "\" "
+                + "style=\"background:#0066cc;color:#fff;text-decoration:none;padding:12px 20px;border-radius:9999px\">다시 시도</a></p>"
+                + "</body></html>";
+        web.loadDataWithBaseURL(url, html, "text/html", "utf-8", null);
     }
 
     @Override
