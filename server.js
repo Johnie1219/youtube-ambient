@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.29-6';
+const APP_VERSION = '2026.06.29-7';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -188,8 +188,19 @@ function buildVideoFilter({ kind, w, h, fps, duration, loopSec }) {
   );
 }
 
-// ── (선택) 영상 제목 텍스트 오버레이 — 플레이리스트형 ──────────────
+// ── (선택) 영상 제목 오버레이 — 플레이리스트 커버형(가운데 큰 세리프 제목 + 부제) ──
 const FONT_PATH = process.env.FONT_PATH || '/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf';
+
+// 우아한 세리프(명조). 이미지에 없으면 기본 폰트로 안전 폴백.
+const FONT_SERIF_PATH = (() => {
+  if (process.env.FONT_SERIF_PATH) return process.env.FONT_SERIF_PATH;
+  const candidates = [
+    '/usr/share/fonts/truetype/nanum/NanumMyeongjoBold.ttf',
+    '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
+  ];
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch (_) {} }
+  return FONT_PATH;
+})();
 
 function wrapText(text, perLine) {
   const words = String(text).trim().split(/\s+/);
@@ -200,18 +211,35 @@ function wrapText(text, perLine) {
     else cur = (cur ? cur + ' ' : '') + w;
   }
   if (cur) lines.push(cur);
-  return lines.slice(0, 4).join('\n'); // 최대 4줄
+  return lines.slice(0, 3).join('\n'); // 최대 3줄
 }
 
-function drawtextFilter(txtPath, h) {
-  // textfile 사용 → 텍스트 이스케이프 불필요. 상단 가운데, 반투명 박스.
-  // 외곽선(borderw) + 그림자(shadow)로 어떤 배경 위에서도 또렷하게(플레이리스트 톤).
-  return (
-    `drawtext=fontfile=${FONT_PATH}:textfile=${txtPath}:` +
-    `fontcolor=white:fontsize=${Math.round(h / 14)}:line_spacing=14:` +
-    `borderw=2:bordercolor=black@0.55:shadowcolor=black@0.5:shadowx=2:shadowy=3:` +
-    `box=1:boxcolor=black@0.32:boxborderw=28:x=(w-text_w)/2:y=h*0.10`
-  );
+// 부제: 글자 사이를 벌려(자간 넓게) 라틴은 대문자로 — 레퍼런스의 "JAZZ VOCAL PLAYLIST" 톤.
+function spaceOut(text) {
+  return String(text).trim().toUpperCase().split('').join(' ').replace(/\s{2,}/g, '  ').trim();
+}
+
+// 화면 가운데 정렬. title은 세리프 큰 글씨, subtitle은 그 아래 작은 자간 글씨.
+// 박스 없이 외곽선+그림자만 → 실사 영상 위에서도 또렷하면서 우아하게.
+function buildOverlay({ titlePath, subPath, h }) {
+  const parts = [];
+  if (titlePath) {
+    parts.push(
+      `drawtext=fontfile=${FONT_SERIF_PATH}:textfile=${titlePath}:` +
+      `fontcolor=white:fontsize=${Math.round(h / 11)}:line_spacing=${Math.round(h / 40)}:` +
+      `borderw=3:bordercolor=black@0.45:shadowcolor=black@0.5:shadowx=2:shadowy=3:` +
+      `x=(w-text_w)/2:y=(h-text_h)/2-h*0.03`
+    );
+  }
+  if (subPath) {
+    parts.push(
+      `drawtext=fontfile=${FONT_PATH}:textfile=${subPath}:` +
+      `fontcolor=white@0.9:fontsize=${Math.round(h / 36)}:` +
+      `borderw=2:bordercolor=black@0.4:shadowcolor=black@0.4:shadowx=1:shadowy=2:` +
+      `x=(w-text_w)/2:y=(h/2)+h*0.06`
+    );
+  }
+  return parts.join(',');
 }
 
 app.post(
@@ -304,12 +332,22 @@ app.post(
       const vf = buildVideoFilter({ kind: srcKind, w, h, fps, duration: loopSec, loopSec });
       let chain = vf;
       const overlayText = (req.body.overlayText || '').toString().trim();
-      if (overlayText) {
-        const txtPath = path.join(UPLOADS, jobId + '_title.txt');
+      const subtitleText = (req.body.subtitle || '').toString().trim();
+      if (overlayText || subtitleText) {
+        let titlePath = null, subPath = null;
         try {
-          fs.writeFileSync(txtPath, wrapText(overlayText, 16));
-          chain = vf + ',' + drawtextFilter(txtPath, h);
-          job.cleanup.push(txtPath);
+          if (overlayText) {
+            titlePath = path.join(UPLOADS, jobId + '_title.txt');
+            fs.writeFileSync(titlePath, wrapText(overlayText, 16));
+            job.cleanup.push(titlePath);
+          }
+          if (subtitleText) {
+            subPath = path.join(UPLOADS, jobId + '_sub.txt');
+            fs.writeFileSync(subPath, spaceOut(subtitleText));
+            job.cleanup.push(subPath);
+          }
+          const overlay = buildOverlay({ titlePath, subPath, h });
+          if (overlay) chain = vf + ',' + overlay;
         } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
       }
 
@@ -544,7 +582,7 @@ app.get('/api/stock/search', async (req, res) => {
     const found = await stock.search(keyword, { targetW: 1920, seed });
     if (!found) return res.status(404).json({ error: '결과가 없습니다. 다른 키워드(영어가 더 정확)로 시도하세요.' });
     // 직접 mp4 링크는 노출하지 않고, 미리보기 썸네일·출처만 전달
-    res.json({ image: found.image, author: found.author, source: found.source, pageUrl: found.pageUrl, duration: found.duration, query: keyword });
+    res.json({ image: found.image, author: found.author, source: found.source, pageUrl: found.pageUrl, duration: found.duration, query: keyword, searchQuery: found.searchQuery });
   } catch (e) {
     res.status(500).json({ error: e && e.message ? e.message : String(e) });
   }

@@ -29,6 +29,34 @@ function hasHangul(s) {
   return /[가-힣]/.test(String(s || ''));
 }
 
+// 한글 키워드 → 영어(스톡 검색 정확도↑). 자주 쓰는 풍경/무드 어휘 사전.
+// 띄어쓰기 없이 붙여 써도("바다노을펜션") 부분 치환으로 잡히게 긴 단어부터 적용.
+const KO_EN = {
+  '바다': 'ocean', '바닷가': 'seaside', '해변': 'beach', '파도': 'waves', '섬': 'island',
+  '노을': 'sunset', '일몰': 'sunset', '석양': 'sunset', '해돋이': 'sunrise', '일출': 'sunrise',
+  '펜션': 'villa', '리조트': 'resort', '호텔': 'hotel', '통창': 'window ocean view', '창문': 'window', '창가': 'window',
+  '숲': 'forest', '나무': 'trees', '산': 'mountain', '계곡': 'valley', '강': 'river', '호수': 'lake', '폭포': 'waterfall',
+  '비': 'rain', '빗소리': 'rain', '눈': 'snow', '안개': 'fog', '구름': 'clouds', '하늘': 'sky', '별': 'starry sky', '오로라': 'aurora',
+  '도시': 'city', '야경': 'city night', '밤': 'night', '거리': 'street', '골목': 'alley', '빌딩': 'buildings', '네온': 'neon city',
+  '카페': 'cafe', '커피': 'coffee', '책': 'books', '독서': 'reading',
+  '드라이브': 'driving', '자동차': 'car', '도로': 'road', '기차': 'train', '비행기': 'airplane', '공항': 'airport',
+  '캠핑': 'camping', '모닥불': 'campfire', '벽난로': 'fireplace', '난로': 'fireplace',
+  '꽃': 'flowers', '벚꽃': 'cherry blossom', '단풍': 'autumn leaves',
+  '봄': 'spring', '여름': 'summer', '가을': 'autumn', '겨울': 'winter',
+  '아침': 'morning', '새벽': 'dawn', '저녁': 'evening', '햇살': 'sunlight', '햇빛': 'sunlight',
+  '도쿄': 'tokyo', '서울': 'seoul', '파리': 'paris', '뉴욕': 'new york',
+};
+const KO_KEYS = Object.keys(KO_EN).sort((a, b) => b.length - a.length);
+
+// 한글이 섞인 키워드를 영어로 치환. 매칭 안 된 한글은 그대로 둔다.
+function translate(q) {
+  let s = ' ' + q + ' ';
+  for (const k of KO_KEYS) {
+    if (s.indexOf(k) >= 0) s = s.split(k).join(' ' + KO_EN[k] + ' ');
+  }
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 // 시드 기반 PRNG — 같은 (키워드, 시드)면 같은 클립을 고르도록.
 function mulberry32(seed) {
   let a = (seed >>> 0) || 1;
@@ -65,8 +93,9 @@ function bestByWidth(files, targetW) {
 
 // ── Pexels ────────────────────────────────────────────────────────
 async function searchPexels(q, targetW, seed) {
-  const params = new URLSearchParams({ query: q, per_page: '20', orientation: 'landscape', size: 'medium' });
-  if (hasHangul(q)) params.set('locale', 'ko-KR');
+  const tq = translate(q);
+  const params = new URLSearchParams({ query: tq, per_page: '20', orientation: 'landscape', size: 'medium' });
+  if (hasHangul(tq)) params.set('locale', 'ko-KR');
   const json = await getJson('https://api.pexels.com/videos/search?' + params.toString(), {
     Authorization: process.env.PEXELS_API_KEY,
   });
@@ -83,16 +112,18 @@ async function searchPexels(q, targetW, seed) {
     source: 'pexels', url: file.link, width: file.width || null, height: file.height || null,
     duration: video.duration || null, author: (video.user && video.user.name) || 'Pexels',
     authorUrl: (video.user && video.user.url) || 'https://www.pexels.com',
-    pageUrl: video.url || 'https://www.pexels.com', image: video.image || null, query: q,
+    pageUrl: video.url || 'https://www.pexels.com', image: video.image || null,
+    query: q, searchQuery: tq,
   };
 }
 
 // ── Pixabay ───────────────────────────────────────────────────────
 async function searchPixabay(q, targetW, seed) {
+  const tq = translate(q);
   const params = new URLSearchParams({
-    key: process.env.PIXABAY_API_KEY, q: q, per_page: '20', video_type: 'film', safesearch: 'true',
+    key: process.env.PIXABAY_API_KEY, q: tq, per_page: '20', video_type: 'film', safesearch: 'true',
   });
-  if (hasHangul(q)) params.set('lang', 'ko');
+  if (hasHangul(tq)) params.set('lang', 'ko');
   const json = await getJson('https://pixabay.com/api/videos/?' + params.toString());
   const hits = (json && json.hits) || [];
   if (!hits.length) return null;
@@ -107,7 +138,7 @@ async function searchPixabay(q, targetW, seed) {
     source: 'pixabay', url: file.url, width: file.width || null, height: file.height || null,
     duration: hit.duration || null, author: hit.user || 'Pixabay',
     authorUrl: hit.pageURL || 'https://pixabay.com', pageUrl: hit.pageURL || 'https://pixabay.com',
-    image, query: q,
+    image, query: q, searchQuery: tq,
   };
 }
 

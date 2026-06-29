@@ -118,7 +118,8 @@
       const j = await resp.json();
       if (!resp.ok) throw new Error(j.error || '검색 실패');
       $('stockThumb').src = j.image || '';
-      $('stockCredit').textContent = '출처: ' + (j.source === 'pixabay' ? 'Pixabay' : 'Pexels') + ' · ' + (j.author || '') + (j.duration ? ' · ' + j.duration + '초' : '');
+      const tq = j.searchQuery && j.searchQuery !== kw ? ' · 검색어: ' + j.searchQuery : '';
+      $('stockCredit').textContent = '출처: ' + (j.source === 'pixabay' ? 'Pixabay' : 'Pexels') + ' · ' + (j.author || '') + (j.duration ? ' · ' + j.duration + '초' : '') + tq;
       $('stockPreview').classList.remove('hidden');
     } catch (e) {
       alert('영상 미리보기 실패: ' + (e.message || e));
@@ -184,6 +185,7 @@
     fd.append('tags', $('vidTags').value);
     fd.append('description', $('vidDesc').value);
     fd.append('overlayText', $('overlayText').value);
+    fd.append('subtitle', $('subtitle').value);
 
     btn.disabled = true; $('generate').disabled = true; $('autoGenerate').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>업로드 중…';
@@ -247,6 +249,8 @@
           ? p.name.replace(/^[\p{Extended_Pictographic}️‍]+\s*/u, '').split(' (')[0].trim()
           : '';
       }
+      // 부제가 비어있으면 기본 "PLAYLIST"
+      if (!$('subtitle').value.trim()) $('subtitle').value = 'PLAYLIST';
       // 3) 음악 생성
       const okMusic = await generateMusic();
       if (!okMusic) return;
