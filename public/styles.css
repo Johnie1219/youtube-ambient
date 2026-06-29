@@ -268,6 +268,13 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 }
 .conn-banner.hidden { display: none; }
 
+/* ── 상단 버전 표시 ──────────────────────────────────────── */
+.ver-top {
+  background: #0a0a0a; color: #9fe09f; text-align: center;
+  font-size: 12px; font-variant-numeric: tabular-nums;
+  padding: 6px 12px; letter-spacing: -0.1px;
+}
+
 /* ── 영상 소스 토글(세그먼트) ────────────────────────────── */
 .seg { display: flex; gap: 8px; margin: 8px 0 10px; flex-wrap: wrap; }
 .seg-btn {

@@ -251,7 +251,10 @@
     // 8분음표 인덱스 e(0..7)의 바 내 시작 시간 — 오프비트(홀수)를 스윙만큼 지연.
     const eighthAt = (t0, e) => t0 + Math.floor(e / 2) * spb + (e % 2 ? spb * swing : 0);
     // 미세 타이밍 흔들림(±ms) — 기계적이지 않게. 간격(>=eighth)보다 훨씬 작아 순서는 유지됨.
+    // jit(): 흔들림을 더하되 항상 0 이상으로 클램프(첫 박이 음수 시간이 되어 Web Audio가
+    //        setValueAtTime에서 에러 내던 문제 방지).
     const hz = (ms) => (rng() * 2 - 1) * (ms / 1000);
+    const jit = (t, ms) => Math.max(0, t + hz(ms));
     // 벨로시티 휴머나이즈
     const vh = (base, amt) => Math.max(0.05, Math.min(1, base + (rng() * 2 - 1) * amt));
 
@@ -272,11 +275,11 @@
       if (!intro) {
         for (let beat = 0; beat < 4; beat++) {
           if (fill && beat === 3) continue;
-          const t = t0 + beat * spb + hz(6);
+          const t = jit(t0 + beat * spb, 6);
           if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, vh(0.95, 0.05));
           // "두둠": 1·3박 바로 뒤 16분에 약한 킥 한 방 더
           if ((beat === 0 || beat === 2) && !(fill && beat === 2)) {
-            const td = t0 + (beat + 0.5) * spb + hz(5);
+            const td = jit(t0 + (beat + 0.5) * spb, 5);
             if (fits(td)) kick.triggerAttackRelease('C1', 0.14, td, 0.6);
           }
         }
@@ -284,24 +287,24 @@
       // 스네어: 2·4박 + 고스트 스네어(엇박, 아주 약하게)로 펑크 그루브
       if (!intro && !fill) {
         for (const beat of [1, 3]) {
-          const t = t0 + beat * spb + hz(7);
+          const t = jit(t0 + beat * spb, 7);
           if (fits(t)) snare.triggerAttackRelease(0.16, t, vh(0.85, 0.06));
         }
         // 고스트: 3박 직전 16분 위치
-        const tg = t0 + 2.75 * spb + hz(5);
+        const tg = jit(t0 + 2.75 * spb, 5);
         if (fits(tg)) snare.triggerAttackRelease(0.05, tg, 0.18 + rng() * 0.1);
       }
       // 하이햇: 8분, 오프비트 강세("칫"). 스윙 적용.
       if (!intro) {
         for (let e = 0; e < 8; e++) {
-          const t = eighthAt(t0, e) + hz(4);
+          const t = jit(eighthAt(t0, e), 4);
           if (fits(t)) hat.triggerAttackRelease(0.03, t, vh(e % 2 ? 0.65 : 0.35, 0.08));
         }
       }
       // 필인: 4박째를 16분 스네어 롤로 채워 다음 섹션으로 밀어줌
       if (fill) {
         for (let k = 0; k < 4; k++) {
-          const t = t0 + (3 + k * 0.25) * spb + hz(4);
+          const t = jit(t0 + (3 + k * 0.25) * spb, 4);
           if (fits(t)) snare.triggerAttackRelease(0.07, t, 0.4 + k * 0.16);
         }
         const tk = t0 + 3 * spb;
@@ -309,19 +312,19 @@
       }
       // 베이스: 펑키 8분 패턴 (스윙 적용). 인트로엔 루트만 길게.
       if (intro) {
-        if (fits(t0)) bass.triggerAttackRelease(bn.root, bar * 0.95, t0 + hz(4), 0.7);
+        if (fits(t0)) bass.triggerAttackRelease(bn.root, bar * 0.95, jit(t0, 4), 0.7);
       } else {
         const pat = [bn.root, null, bn.root, bn.oct, null, bn.fifth, bn.root, null];
         for (let e = 0; e < 8; e++) {
           const n = pat[e];
-          const t = eighthAt(t0, e) + hz(5);
+          const t = jit(eighthAt(t0, e), 5);
           if (n && fits(t)) bass.triggerAttackRelease(n, eighth * 0.9, t, vh(0.85, 0.07));
         }
       }
       // 코드 스탭: 1박 + 2·4박의 뒷박(엇박). 인트로는 더 부드럽게.
-      if (fits(t0)) chordSynth.triggerAttackRelease(chord.stab, 0.18, t0 + hz(6), intro ? 0.4 : vh(0.5, 0.08));
+      if (fits(t0)) chordSynth.triggerAttackRelease(chord.stab, 0.18, jit(t0, 6), intro ? 0.4 : vh(0.5, 0.08));
       for (const off of [1.5, 3.5]) {
-        const t = t0 + off * spb + hz(6);
+        const t = jit(t0 + off * spb, 6);
         if (fits(t)) chordSynth.triggerAttackRelease(chord.stab, 0.22, t, vh(0.55, 0.08));
       }
       // 반짝임(아르페지오): 코드음을 한 옥타브 올려 8분 통통 — 밝고 청량한 윤기.
@@ -330,7 +333,7 @@
         let prev = -1;
         for (let e = 0; e < 8; e++) {
           if (e % 2 === 0) continue;           // 오프비트(엇박)에만 → 가벼운 그루브
-          let t = eighthAt(t0, e) + hz(4);
+          let t = jit(eighthAt(t0, e), 4);
           if (t <= prev) t = prev + 0.03;
           const note = up[(e >> 1) % up.length];
           if (fits(t)) arp.triggerAttackRelease(note, eighth * 0.6, t, vh(0.5, 0.15));
@@ -341,7 +344,7 @@
       if (!intro && b % 2 === 1) {
         let prev = -1;
         for (let k = 0; k < 3; k++) {
-          let t = eighthAt(t0, 4 + k) + hz(5);
+          let t = jit(eighthAt(t0, 4 + k), 5);
           if (t <= prev) t = prev + 0.05;
           const note = scale[Math.floor(rng() * scale.length)];
           if (fits(t)) lead.triggerAttackRelease(note, eighth, t, vh(0.5, 0.12));

@@ -434,15 +434,20 @@
         $('stockHint').innerHTML = '⚠️ 실사 영상을 쓰려면 서버에 <b>PEXELS_API_KEY</b> 또는 <b>PIXABAY_API_KEY</b>가 필요해요(무료). ' +
           '없으면 아래 테마 배경으로 자동 대체됩니다.';
       }
-      build.textContent = 'v' + (j.version || '?') +
+      const line = 'v' + (j.version || '?') +
         (j.youtube ? ' · 유튜브 연결됨' : '') +
         (j.stock ? ' · 실사영상 연결됨' : '') +
         ' · 메타: ' + (j.metadataProvider || 'template');
+      build.textContent = line;
+      const top = $('buildInfoTop');
+      if (top) top.textContent = '🟢 ' + line;
     } catch (e) {
       detail.textContent = ' 현재 주소(' + location.host + ')에서 서버가 응답하지 않습니다. ' +
         'NAS 컨테이너가 켜져 있는지, 주소에 포트(:8443)가 맞는지 확인하세요.';
       banner.classList.remove('hidden');
       build.textContent = '서버 연결 안됨';
+      const top = $('buildInfoTop');
+      if (top) top.textContent = '🔴 서버 연결 안됨';
     }
   }
 
