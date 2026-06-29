@@ -181,6 +181,30 @@ function buildVideoFilter({ kind, w, h, fps, duration }) {
   );
 }
 
+// ── (선택) 영상 제목 텍스트 오버레이 — 플레이리스트형 ──────────────
+const FONT_PATH = process.env.FONT_PATH || '/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf';
+
+function wrapText(text, perLine) {
+  const words = String(text).trim().split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > perLine && cur) { lines.push(cur); cur = w; }
+    else cur = (cur ? cur + ' ' : '') + w;
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 4).join('\n'); // 최대 4줄
+}
+
+function drawtextFilter(txtPath, h) {
+  // textfile 사용 → 텍스트 이스케이프 불필요. 상단 가운데, 반투명 박스.
+  return (
+    `drawtext=fontfile=${FONT_PATH}:textfile=${txtPath}:` +
+    `fontcolor=white:fontsize=${Math.round(h / 14)}:line_spacing=14:` +
+    `box=1:boxcolor=black@0.35:boxborderw=28:x=(w-text_w)/2:y=h*0.10`
+  );
+}
+
 app.post(
   '/api/render',
   upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'media', maxCount: 1 }]),
@@ -266,8 +290,20 @@ app.post(
 
     const vf = buildVideoFilter({ kind: mediaKind, w, h, fps, duration });
 
+    // (선택) 제목 텍스트 오버레이 — overlayText가 있으면 drawtext 추가
+    let chain = vf;
+    const overlayText = (req.body.overlayText || '').toString().trim();
+    if (overlayText) {
+      const txtPath = path.join(UPLOADS, jobId + '_title.txt');
+      try {
+        fs.writeFileSync(txtPath, wrapText(overlayText, 16));
+        chain = vf + ',' + drawtextFilter(txtPath, h);
+        job.cleanup.push(txtPath);
+      } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
+    }
+
     cmd
-      .complexFilter([`[0:v]${vf}[vout]`])
+      .complexFilter([`[0:v]${chain}[vout]`])
       .outputOptions([
         '-map', '[vout]',
         '-map', '1:a:0',

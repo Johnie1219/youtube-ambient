@@ -161,6 +161,7 @@
     fd.append('title', $('vidTitle').value);
     fd.append('tags', $('vidTags').value);
     fd.append('description', $('vidDesc').value);
+    fd.append('overlayText', $('overlayText').value);
 
     btn.disabled = true; $('generate').disabled = true; $('autoGenerate').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>업로드 중…';
@@ -187,6 +188,11 @@
     firelight_night: 'rosewood_night', city_drive: 'neon_city', funky_sunset: 'golden_sunset',
     dreamy_synth: 'dreamy_violet', deep_sleep: 'deep_indigo', lofi_rain: 'lofi_dusk', night_city: 'neon_city',
   };
+  // 음악 프리셋을 바꾸면 영상 테마도 어울리게 자동 동기화
+  presetSel.addEventListener('change', () => {
+    const m = PRESET_THEME[presetSel.value];
+    if (m) $('theme').value = m;
+  });
   $('autoGenerate').addEventListener('click', async () => {
     const btn = $('autoGenerate'), status = $('genStatus');
     btn.disabled = true;
@@ -197,6 +203,11 @@
       // 2) 제목·해시태그·설명 자동 작성
       status.className = 'status'; status.innerHTML = '<span class="spinner"></span>제목·해시태그 작성 중…';
       try { await fillMetadata(true); } catch (_) { /* 메타 실패해도 계속 */ }
+      // 영상 제목 오버레이가 비어있으면 프리셋 이름으로 채움
+      if (!$('overlayText').value.trim()) {
+        const p = presets[presetSel.value];
+        $('overlayText').value = p ? p.name.replace(/^[^\s]+\s/, '').split(' (')[0] : '';
+      }
       // 3) 음악 생성
       const okMusic = await generateMusic();
       if (!okMusic) return;

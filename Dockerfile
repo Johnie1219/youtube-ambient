@@ -1,13 +1,14 @@
 # 가을 계곡 앰비언트 → 유튜브 MP4 메이커 — NAS/서버용 이미지
 FROM node:20-slim
 
-# 시스템 ffmpeg 설치(아키텍처/플랫폼에 안정적). 서버는 FFMPEG_PATH로 이 바이너리를 사용.
+# 시스템 ffmpeg + 한글 폰트(영상 제목 오버레이용) 설치.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates fonts-nanum \
   && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
     FFMPEG_PATH=/usr/bin/ffmpeg \
+    FONT_PATH=/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf \
     PORT=5174 \
     HOST=0.0.0.0
 
