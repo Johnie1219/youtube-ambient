@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.29-4';
+const APP_VERSION = '2026.06.29-5';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -349,8 +349,8 @@ app.post(
           const stockPath = path.join(UPLOADS, jobId + '_stock.mp4');
           job.cleanup.push(stockPath);
           job.meta.stock = {
-            source: 'pexels', query: keyword,
-            author: found.author, authorUrl: found.authorUrl, pexelsUrl: found.pexelsUrl,
+            source: found.source, query: keyword,
+            author: found.author, authorUrl: found.authorUrl, pageUrl: found.pageUrl,
           };
           return stock.download(found.url, stockPath).then(() => startPass1('video', stockPath, 10));
         })
@@ -526,7 +526,7 @@ app.post('/api/metadata/generate', async (req, res) => {
 // 키워드로 실사 영상 미리보기 (렌더 전에 어떤 영상이 잡히는지 확인)
 app.get('/api/stock/search', async (req, res) => {
   if (!stock.isConfigured()) {
-    return res.status(400).json({ error: '실사 영상이 아직 연결되지 않았습니다. 서버에 PEXELS_API_KEY를 설정하세요.', needsSetup: true });
+    return res.status(400).json({ error: '실사 영상이 아직 연결되지 않았습니다. 서버에 PEXELS_API_KEY 또는 PIXABAY_API_KEY를 설정하세요.', needsSetup: true });
   }
   const keyword = (req.query.keyword || '').toString().trim();
   if (!keyword) return res.status(400).json({ error: '키워드를 입력하세요.' });
@@ -535,7 +535,7 @@ app.get('/api/stock/search', async (req, res) => {
     const found = await stock.search(keyword, { targetW: 1920, seed });
     if (!found) return res.status(404).json({ error: '결과가 없습니다. 다른 키워드(영어가 더 정확)로 시도하세요.' });
     // 직접 mp4 링크는 노출하지 않고, 미리보기 썸네일·출처만 전달
-    res.json({ image: found.image, author: found.author, pexelsUrl: found.pexelsUrl, duration: found.duration, query: keyword });
+    res.json({ image: found.image, author: found.author, source: found.source, pageUrl: found.pageUrl, duration: found.duration, query: keyword });
   } catch (e) {
     res.status(500).json({ error: e && e.message ? e.message : String(e) });
   }

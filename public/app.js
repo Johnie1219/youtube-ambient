@@ -118,7 +118,7 @@
       const j = await resp.json();
       if (!resp.ok) throw new Error(j.error || '검색 실패');
       $('stockThumb').src = j.image || '';
-      $('stockCredit').textContent = '출처: Pexels · ' + (j.author || '') + (j.duration ? ' · ' + j.duration + '초' : '');
+      $('stockCredit').textContent = '출처: ' + (j.source === 'pixabay' ? 'Pixabay' : 'Pexels') + ' · ' + (j.author || '') + (j.duration ? ' · ' + j.duration + '초' : '');
       $('stockPreview').classList.remove('hidden');
     } catch (e) {
       alert('영상 미리보기 실패: ' + (e.message || e));
@@ -400,7 +400,7 @@
       banner.classList.add('hidden');
       stockConfigured = !!j.stock;
       if (!stockConfigured) {
-        $('stockHint').innerHTML = '⚠️ 실사 영상을 쓰려면 서버에 <b>PEXELS_API_KEY</b>가 필요해요(무료). ' +
+        $('stockHint').innerHTML = '⚠️ 실사 영상을 쓰려면 서버에 <b>PEXELS_API_KEY</b> 또는 <b>PIXABAY_API_KEY</b>가 필요해요(무료). ' +
           '없으면 아래 테마 배경으로 자동 대체됩니다.';
       }
       build.textContent = 'v' + (j.version || '?') +

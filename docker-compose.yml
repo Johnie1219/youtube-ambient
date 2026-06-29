@@ -14,9 +14,11 @@ services:
       - PORT=5174
       - HOST=0.0.0.0
       - OUTPUT_DIR=/data/output     # 완성 영상이 여기에 영구 저장됨(아래 볼륨에 매핑)
-      # ── 키워드 → 실사 영상 (Pexels, 무료) ──
-      # 발급: https://www.pexels.com/api/ (가입 후 키 복사) → 아래 주석 해제하고 값 입력
+      # ── 키워드 → 실사 영상 (무료. 둘 중 아무거나 하나) ──
+      # Pexels:  https://www.pexels.com/api/
+      # Pixabay: https://pixabay.com/api/docs/ (가입 시 키 즉시 표시 — 더 간편)
       # - PEXELS_API_KEY=여기에_펙셀스_키
+      # - PIXABAY_API_KEY=여기에_픽사베이_키
       # 외부 노출 시 권장: 간단 인증 (원하면 주석 해제하고 값 변경)
       # - BASIC_AUTH_USER=admin
       # - BASIC_AUTH_PASS=바꾸세요_강력한_비밀번호
