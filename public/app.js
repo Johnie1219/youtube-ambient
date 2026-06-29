@@ -73,41 +73,40 @@
   applyPresetDefaults();
 
   // ── AI/템플릿 메타데이터 자동 작성 ────────────────────────
+  async function fillMetadata(silent) {
+    const resp = await fetch('/api/metadata/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preset: presetSel.value,
+        theme: $('theme').value,
+        durationSec: audioDuration || 180,
+        seed: parseInt($('seed').value, 10) || 1,
+      }),
+    });
+    const j = await resp.json();
+    if (!resp.ok) throw new Error(j.error || '실패');
+    $('vidTitle').value = j.title || '';
+    $('vidTitle').dataset.touched = '1';
+    $('vidTags').value = (j.tags || []).join(', ');
+    $('vidTags').dataset.touched = '1';
+    $('vidDesc').value = j.description || '';
+    $('vidDesc').dataset.touched = '1';
+    $('metaProvider').textContent = '생성 방식: ' + (j.provider || 'template');
+    return j;
+  }
   $('metaGenerate').addEventListener('click', async () => {
     const btn = $('metaGenerate');
     const old = btn.textContent;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>작성 중…';
-    try {
-      const resp = await fetch('/api/metadata/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preset: presetSel.value,
-          theme: $('theme').value,
-          durationSec: audioDuration || 180,
-          seed: parseInt($('seed').value, 10) || 1,
-        }),
-      });
-      const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error || '실패');
-      $('vidTitle').value = j.title || '';
-      $('vidTitle').dataset.touched = '1';
-      $('vidTags').value = (j.tags || []).join(', ');
-      $('vidTags').dataset.touched = '1';
-      $('vidDesc').value = j.description || '';
-      $('vidDesc').dataset.touched = '1';
-      $('metaProvider').textContent = '생성 방식: ' + (j.provider || 'template');
-    } catch (e) {
-      alert('자동 작성 실패: ' + (e.message || e));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = old;
-    }
+    try { await fillMetadata(); }
+    catch (e) { alert('자동 작성 실패: ' + (e.message || e)); }
+    finally { btn.disabled = false; btn.textContent = old; }
   });
 
   // ── 음악 생성 ─────────────────────────────────────────────
-  $('generate').addEventListener('click', async () => {
+  async function generateMusic() {
     const btn = $('generate'), status = $('genStatus');
     const minutes = parseFloat($('duration').value) || 3;
     const duration = Math.max(8, Math.min(20 * 60, minutes * 60));
@@ -120,7 +119,7 @@
         sub: $('layer-sub').checked, water: $('layer-water').checked,
       },
     };
-    btn.disabled = true; $('render').disabled = true;
+    btn.disabled = true; $('autoGenerate').disabled = true; $('render').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>음악 생성 중…';
     try {
       const audioBuffer = await AmbientEngine.render(opts, (s) => (status.innerHTML = '<span class="spinner"></span>' + s));
@@ -136,16 +135,19 @@
       $('renderStatus').textContent = '이제 MP4를 만들 수 있어요.';
       status.className = 'status ok';
       status.textContent = `완료 · ${fmtTime(audioDuration)} · WAV ${(wavBlob.size / 1048576).toFixed(1)} MB`;
+      return true;
     } catch (err) {
       console.error(err);
       status.className = 'status err'; status.textContent = '생성 실패: ' + (err.message || err);
-    } finally { btn.disabled = false; }
-  });
+      return false;
+    } finally { btn.disabled = false; $('autoGenerate').disabled = false; }
+  }
+  $('generate').addEventListener('click', generateMusic);
   $('downloadWav').addEventListener('click', () => { if (wavBlob) triggerDownload(wavUrl, fileBase() + '.wav'); });
 
   // ── MP4 만들기 ────────────────────────────────────────────
-  $('render').addEventListener('click', async () => {
-    if (!wavBlob) return;
+  async function renderMp4() {
+    if (!wavBlob) return false;
     const btn = $('render'), status = $('renderStatus');
     const fd = new FormData();
     fd.append('audio', wavBlob, 'ambient.wav');
@@ -160,7 +162,7 @@
     fd.append('tags', $('vidTags').value);
     fd.append('description', $('vidDesc').value);
 
-    btn.disabled = true; $('generate').disabled = true;
+    btn.disabled = true; $('generate').disabled = true; $('autoGenerate').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>업로드 중…';
     $('mp4Result').classList.add('hidden'); setProgress(0, true);
     try {
@@ -169,11 +171,39 @@
       const { jobId } = await resp.json();
       status.innerHTML = '<span class="spinner"></span>인코딩 중…';
       await trackProgress(jobId, status);
+      return true;
     } catch (err) {
       console.error(err);
       status.className = 'status err'; status.textContent = 'MP4 생성 실패: ' + (err.message || err);
       setProgress(0, false);
-    } finally { btn.disabled = false; $('generate').disabled = false; }
+      return false;
+    } finally { btn.disabled = false; $('generate').disabled = false; $('autoGenerate').disabled = false; }
+  }
+  $('render').addEventListener('click', renderMp4);
+
+  // ── 🤖 원클릭 자동: 테마에 맞춰 메타데이터→음악→영상까지 한 번에 ──
+  const PRESET_THEME = {
+    autumn_valley: 'autumn_valley', misty_dawn: 'misty_dawn', rainy_valley: 'deep_indigo',
+    firelight_night: 'rosewood_night', city_drive: 'neon_city', funky_sunset: 'golden_sunset',
+    dreamy_synth: 'dreamy_violet', deep_sleep: 'deep_indigo', lofi_rain: 'lofi_dusk', night_city: 'neon_city',
+  };
+  $('autoGenerate').addEventListener('click', async () => {
+    const btn = $('autoGenerate'), status = $('genStatus');
+    btn.disabled = true;
+    try {
+      // 1) 영상 테마를 음악 프리셋에 맞게 자동 선택
+      const mapped = PRESET_THEME[presetSel.value];
+      if (mapped) $('theme').value = mapped;
+      // 2) 제목·해시태그·설명 자동 작성
+      status.className = 'status'; status.innerHTML = '<span class="spinner"></span>제목·해시태그 작성 중…';
+      try { await fillMetadata(true); } catch (_) { /* 메타 실패해도 계속 */ }
+      // 3) 음악 생성
+      const okMusic = await generateMusic();
+      if (!okMusic) return;
+      // 4) 영상(MP4)까지
+      const okVideo = await renderMp4();
+      if (okVideo) document.getElementById('gallery').scrollIntoView({ behavior: 'smooth' });
+    } finally { btn.disabled = false; }
   });
 
   function trackProgress(jobId, status) {
