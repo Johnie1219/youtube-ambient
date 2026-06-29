@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 가을 계곡 앰비언트 → 유튜브 MP4 메이커 (로컬 웹앱)
+ * AI Music Studio — 코드로 음악 생성 + 영상 합치기 → MP4
  *
  * - 음악은 브라우저(public/audio/ambient-engine.js)에서 Tone.js로 코드 생성됩니다.
  * - 이 서버는 생성된 음악(WAV)과 영상/이미지를 받아 ffmpeg로 고화질 MP4를 만듭니다.
@@ -146,6 +146,10 @@ const THEMES = {
   misty_dawn:     { c0: '0x10202a', c1: '0x3a4a52', speed: 0.004 }, // 새벽 안개: 짙은 청록 → 슬레이트
   rosewood_night: { c0: '0x2a0e1a', c1: '0x4a2440', speed: 0.004 }, // 모닥불 밤: 적갈색 → 자줏빛
   forest_emerald: { c0: '0x0e2014', c1: '0x2f5a36', speed: 0.005 }, // 숲 에메랄드: 짙은 녹 → 모스 그린
+  dreamy_violet:  { c0: '0x1a1030', c1: '0x4a2a6a', speed: 0.006 }, // 드리미: 짙은 보라 → 라일락
+  deep_indigo:    { c0: '0x080a1a', c1: '0x1c2a4a', speed: 0.003 }, // 딥 슬립: 한밤 인디고
+  lofi_dusk:      { c0: '0x2a1a2a', c1: '0x6a4a3a', speed: 0.005 }, // 로파이: 더스크 보라/브라운
+  neon_city:      { c0: '0x0a1428', c1: '0x2a1a4a', speed: 0.007 }, // 나이트 시티: 네온 블루/퍼플
 };
 
 function buildVideoFilter({ kind, w, h, fps, duration }) {
@@ -202,7 +206,7 @@ app.post(
     // 영상 메타데이터(제목/설명/태그) — 유튜브 업로드에 그대로 사용
     const meta = {
       id: jobId,
-      title: (req.body.title || '').toString().trim() || '가을 앰비언트',
+      title: (req.body.title || '').toString().trim() || '내 음악',
       description: (req.body.description || '').toString(),
       tags: (req.body.tags || '')
         .toString()
@@ -346,7 +350,7 @@ app.get('/api/download/:id', (req, res) => {
   if (!isValidId(id) || !fs.existsSync(videoPath(id))) {
     return res.status(404).send('결과 파일을 찾을 수 없습니다.');
   }
-  const name = req.query.name ? String(req.query.name) : `autumn-ambient-${id}.mp4`;
+  const name = req.query.name ? String(req.query.name) : `music-${id}.mp4`;
   res.download(videoPath(id), name);
 });
 
@@ -391,7 +395,7 @@ app.post('/api/videos/:id/youtube', async (req, res) => {
   }
   const meta = readMeta(id) || {};
   const body = req.body || {};
-  const title = (body.title || meta.title || '가을 앰비언트').toString();
+  const title = (body.title || meta.title || '내 음악').toString();
   const description = (body.description || meta.description || '').toString();
   const tags = Array.isArray(body.tags)
     ? body.tags
@@ -446,7 +450,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log('\n  🍂  가을 계곡 앰비언트 → 유튜브 MP4 메이커');
+  console.log('\n  🎵  AI Music Studio');
   console.log(`  ▶  로컬:       http://localhost:${PORT}`);
   console.log(`  ▶  같은 네트워크(LAN/휴대폰): http://<이 서버의 IP>:${PORT}`);
   if (AUTH_USER && AUTH_PASS) console.log('  🔒  Basic 인증 활성화됨');

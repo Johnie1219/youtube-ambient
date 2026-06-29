@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>가을 앰비언트 스튜디오</title>
+  <title>AI Music Studio</title>
 
   <!-- PWA: 홈 화면에 앱으로 설치 (안드로이드·아이폰) -->
   <link rel="manifest" href="manifest.webmanifest" />
@@ -13,14 +13,14 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="가을 앰비언트" />
+  <meta name="apple-mobile-web-app-title" content="Music Studio" />
 
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- 글로벌 나브 -->
   <nav class="global-nav">
-    <span class="brand">🍂 Ambient Studio</span>
+    <span class="brand">🎵 AI Music Studio</span>
     <span class="spacer"></span>
     <a href="#make">만들기</a>
     <a href="#gallery">내 영상</a>
@@ -29,7 +29,7 @@
 
   <!-- 서브 나브 (프로스티드) -->
   <div class="sub-nav">
-    <span class="sub-title">가을 앰비언트</span>
+    <span class="sub-title">Music Studio</span>
     <span class="spacer"></span>
     <a href="#make" class="hide-sm">음악</a>
     <a href="#video" class="hide-sm">영상</a>
@@ -39,7 +39,7 @@
   <!-- HERO (다크 타일) -->
   <section class="tile tile-dark">
     <div class="inner">
-      <h1 class="hero-display">코드로 만드는<br />가을 앰비언트.</h1>
+      <h1 class="hero-display">코드로 만드는<br />음악 & 영상.</h1>
       <p class="lead">잔잔한 음악을 생성하고, 어울리는 배경과 합쳐<br />유튜브용 고화질 영상으로.</p>
       <div class="btn-row">
         <a href="#make" class="btn btn-primary">시작하기</a>
@@ -117,6 +117,10 @@
             <option value="misty_dawn">🌫️ 새벽 안개</option>
             <option value="rosewood_night">🔥 모닥불 밤</option>
             <option value="forest_emerald">🌲 숲 에메랄드</option>
+            <option value="dreamy_violet">✨ 드리미 바이올렛</option>
+            <option value="deep_indigo">🌙 딥 인디고</option>
+            <option value="lofi_dusk">🌆 로파이 더스크</option>
+            <option value="neon_city">🌃 네온 시티</option>
           </select>
           <small class="hint">파일을 안 올리면 이 테마로 배경을 자동 생성합니다(10초 주기로 은은하게 호흡, 음악 길이만큼 이어져 이음새 없음).</small>
         </label>
@@ -144,7 +148,7 @@
 
         <label class="field full">
           <span class="label">유튜브 제목</span>
-          <input id="vidTitle" type="text" maxlength="100" placeholder="예: 🍂 가을 계곡 앰비언트 | 잔잔한 휴식·수면·집중 음악" />
+          <input id="vidTitle" type="text" maxlength="100" placeholder="예: ✨ 잔잔한 앰비언트 | 휴식·수면·집중 음악" />
         </label>
         <label class="field full">
           <span class="label">해시태그 (쉼표로 구분)</span>

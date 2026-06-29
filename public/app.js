@@ -18,6 +18,10 @@
     misty_dawn: '새벽 안개',
     rosewood_night: '모닥불 밤',
     forest_emerald: '숲 에메랄드',
+    dreamy_violet: '드리미 바이올렛',
+    deep_indigo: '딥 인디고',
+    lofi_dusk: '로파이 더스크',
+    neon_city: '네온 시티',
   };
 
   // ── 프리셋 ────────────────────────────────────────────────
@@ -49,18 +53,18 @@
     if (hint) hint.textContent = '휴대폰에서는 1~2분 권장(브라우저에서 생성). MP4 합치기는 서버에서 처리됩니다.';
   }
 
-  // 제목/해시태그 자동 채우기(비어 있을 때만)
+  // 제목/해시태그 기본값(비어 있을 때만). 더 좋은 결과는 "✨ 자동 작성" 버튼 사용.
   function prefillMeta() {
-    const presetName = presets[presetSel.value] ? presets[presetSel.value].name.split(' (')[0] : '가을 계곡';
-    const themeName = THEME_LABELS[$('theme').value] || '가을';
+    const p = presets[presetSel.value];
+    const presetName = p ? p.name.split(' (')[0] : '음악';
     if (!$('vidTitle').dataset.touched) {
-      $('vidTitle').value = `🍂 ${presetName} 앰비언트 | 잔잔한 휴식·수면·집중을 위한 연주 음악`;
+      $('vidTitle').value = `${presetName} | 휴식·집중·드라이브를 위한 음악 플레이리스트`;
     }
     if (!$('vidTags').dataset.touched) {
-      $('vidTags').value = `앰비언트, ${themeName}, 수면음악, 집중음악, lofi, relaxing, ambient`;
+      $('vidTags').value = `음악, 플레이리스트, BGM, playlist, music, chill`;
     }
     if (!$('vidDesc').dataset.touched) {
-      $('vidDesc').value = `코드로 생성한 ${presetName} 분위기의 잔잔한 앰비언트 음악입니다.\n휴식, 수면, 공부, 명상에 함께하세요.`;
+      $('vidDesc').value = `코드로 생성한 오리지널 음악입니다.\n휴식·집중·드라이브에 함께하세요. ("✨ 자동 작성"으로 더 좋은 제목·태그·설명을 만들 수 있어요.)`;
     }
   }
   ['vidTitle', 'vidTags', 'vidDesc'].forEach((id) =>
@@ -305,7 +309,7 @@
     $('progressPct').textContent = Math.round(pct) + '%';
   }
   function fmtTime(sec) { const m = Math.floor(sec / 60), s = Math.round(sec % 60); return m + ':' + String(s).padStart(2, '0'); }
-  function fileBase() { return 'autumn-ambient-' + presetSel.value + '-' + ($('seed').value || '0'); }
+  function fileBase() { return 'music-' + presetSel.value + '-' + ($('seed').value || '0'); }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function triggerDownload(url, name) {
     const a = document.createElement('a'); a.href = url; a.download = name;

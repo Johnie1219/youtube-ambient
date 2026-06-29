@@ -120,6 +120,58 @@
       ],
       scale: ['A4', 'C5', 'D5', 'E5', 'G5', 'A5', 'C6'],
     },
+
+    // ── 앰비언트 추가 ────────────────────────────────────────────
+    dreamy_synth: {
+      name: '✨ 드리미 신스 (Dreamy Synth)',
+      desc: '밝고 몽환적인 신스 패드',
+      bpm: 54, reverbWet: 0.6, noiseLevel: 0.2, noiseTone: 'pink', melodyDensity: 1.6,
+      chords: [
+        { pad: ['C4', 'E4', 'G4', 'D5'], bass: 'C2' },
+        { pad: ['B3', 'D4', 'G4', 'A4'], bass: 'G1' },
+        { pad: ['A3', 'C4', 'E4', 'G4'], bass: 'A1' },
+        { pad: ['F3', 'A3', 'C4', 'E4'], bass: 'F1' },
+      ],
+      scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6'],
+    },
+    deep_sleep: {
+      name: '🌙 깊은 수면 (Deep Sleep)',
+      desc: '아주 느리고 미니멀한 저음 중심',
+      bpm: 48, reverbWet: 0.7, noiseLevel: 0.3, noiseTone: 'brown', melodyDensity: 0.8,
+      chords: [
+        { pad: ['A3', 'C4', 'E4', 'B4'], bass: 'A1' },
+        { pad: ['E3', 'G3', 'B3', 'D4'], bass: 'E1' },
+        { pad: ['F3', 'A3', 'C4', 'E4'], bass: 'F1' },
+        { pad: ['C4', 'E4', 'G4', 'B4'], bass: 'C2' },
+      ],
+      scale: ['A4', 'C5', 'D5', 'E5', 'G5'],
+    },
+
+    // ── 그루비 추가 ──────────────────────────────────────────────
+    lofi_rain: {
+      name: '🌧️ 로파이 (Lo-fi Chill)',
+      desc: '나른한 로파이 힙합 비트와 재지한 코드',
+      mode: 'groovy', bpm: 82, reverbWet: 0.24,
+      chords: [
+        { stab: ['A3', 'C4', 'E4', 'G4'], bass: 'F1' }, // Fmaj7
+        { stab: ['G3', 'B3', 'D4', 'F4'], bass: 'E1' }, // Em7
+        { stab: ['F3', 'A3', 'C4', 'E4'], bass: 'D2' }, // Dm7
+        { stab: ['E4', 'G4', 'B4', 'D5'], bass: 'C2' }, // Cmaj7
+      ],
+      scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6'],
+    },
+    night_city: {
+      name: '🌃 나이트 시티 (City Pop Night)',
+      desc: '세련된 밤의 시티팝 그루브',
+      mode: 'groovy', bpm: 98, reverbWet: 0.18,
+      chords: [
+        { stab: ['F#4', 'A4', 'C#5', 'E5'], bass: 'D2' }, // Dmaj7
+        { stab: ['D4', 'F#4', 'A4', 'C#5'], bass: 'B1' }, // Bm7
+        { stab: ['B3', 'D4', 'F#4', 'A4'], bass: 'G1' },  // Gmaj7
+        { stab: ['C#4', 'G4', 'A4', 'E5'], bass: 'A1' },  // A7
+      ],
+      scale: ['D5', 'E5', 'F#5', 'A5', 'B5', 'D6'],
+    },
   };
 
   // 그루비 모드: 드럼(킥/스네어/하이햇) + 펑키 베이스 + 코드 스탭 + 스파스 리드.

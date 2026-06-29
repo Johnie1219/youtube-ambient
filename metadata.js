@@ -22,6 +22,10 @@ const SEEDS = {
   firelight_night:{ emoji: '🔥', ko: '모닥불 밤 앰비언트', genre: '앰비언트', en: 'Cozy Fireplace Ambient', moods: ['포근한', '따뜻한', '아늑한'], benefits: ['수면', '휴식', '독서'], tags: ['모닥불', '앰비언트', '수면음악', 'fireplace', 'cozy', 'ambient', 'sleep', 'relax', 'winter', 'reading'] },
   city_drive:     { emoji: '🚗', ko: '시티 드라이브 플레이리스트', genre: '시티팝 그루브', en: 'City Pop Drive', moods: ['신나는', '그루비한', '청량한'], benefits: ['드라이브', '기분전환', '운동', '출퇴근'], tags: ['시티팝', '드라이브', '플레이리스트', 'citypop', 'groove', 'funk', 'playlist', 'driving', 'kpop', 'chill'] },
   funky_sunset:   { emoji: '🌆', ko: '펑키 선셋 그루브', genre: '펑크·소울 그루브', en: 'Funky Sunset Groove', moods: ['그루비한', '나른한', '세련된'], benefits: ['드라이브', '카페', '기분전환'], tags: ['펑크', '소울', '그루브', 'funk', 'soul', 'groove', 'playlist', 'citypop', 'chill', 'lofi'] },
+  dreamy_synth:   { emoji: '✨', ko: '드리미 신스', genre: '드림 신스 앰비언트', en: 'Dreamy Synth Ambient', moods: ['몽환적인', '밝은', '포근한'], benefits: ['집중', '휴식', '공부', '명상'], tags: ['앰비언트', '신스', '집중음악', '공부음악', 'ambient', 'synthwave', 'dreamy', 'study', 'chill', 'relax'] },
+  deep_sleep:     { emoji: '🌙', ko: '깊은 수면', genre: '딥 슬립 앰비언트', en: 'Deep Sleep Ambient', moods: ['고요한', '깊은', '편안한'], benefits: ['수면', '불면 완화', '명상', '휴식'], tags: ['수면음악', '잠잘때듣는음악', '불면증', '앰비언트', 'sleep music', 'deep sleep', 'insomnia', 'ambient', 'calm', 'meditation'] },
+  lofi_rain:      { emoji: '🌧️', ko: '로파이 칠', genre: 'Lo-fi 힙합', en: 'Lo-fi Chill', moods: ['나른한', '편안한', '재지한'], benefits: ['공부', '집중', '작업', '휴식'], tags: ['로파이', 'lofi', '공부음악', '집중음악', 'lofi hiphop', 'chill', 'study', 'beats', 'relax', 'cafe'] },
+  night_city:     { emoji: '🌃', ko: '나이트 시티 시티팝', genre: '시티팝', en: 'City Pop Night', moods: ['세련된', '그루비한', '도시적인'], benefits: ['드라이브', '밤', '기분전환', '카페'], tags: ['시티팝', 'citypop', '플레이리스트', 'playlist', 'citypop night', 'groove', 'chill', 'kpop', 'jpop', 'driving'] },
 };
 const DEFAULT_SEED = SEEDS.autumn_valley;
 
