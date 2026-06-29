@@ -16,7 +16,8 @@ const http = require('http');
 
 // 테마(=음악 프리셋) → 메타데이터 시드. 키는 ambient-engine.js의 프리셋 키와 맞춤.
 const SEEDS = {
-  autumn_valley:  { emoji: '🍂', ko: '가을 앰비언트', genre: '앰비언트', en: 'Autumn Ambient', moods: ['잔잔한', '따뜻한', '포근한'], benefits: ['스트레스 해소', '수면', '집중', '휴식'], tags: ['앰비언트', '가을', '수면음악', '집중음악', '휴식음악', 'ambient', 'relaxing', 'sleep music', 'study music', 'lofi'] },
+  boom_drive:     { emoji: '🔥', ko: '두둠칫 드라이브', genre: '신나는 드라이브 그루브', en: 'Bright Drive Groove', moods: ['신나는', '밝은', '청량한'], benefits: ['드라이브', '운동', '기분전환', '출퇴근'], tags: ['드라이브', '플레이리스트', '신나는노래', '그루브', 'playlist', 'driving', 'citypop', 'funk', 'groove', 'upbeat'] },
+  autumn_valley:  { emoji: '🌅', ko: '포근한 앰비언트', genre: '앰비언트', en: 'Warm Ambient', moods: ['잔잔한', '따뜻한', '포근한'], benefits: ['스트레스 해소', '수면', '집중', '휴식'], tags: ['앰비언트', '휴식음악', '수면음악', '집중음악', 'ambient', 'relaxing', 'sleep music', 'study music', 'calm', 'lofi'] },
   misty_dawn:     { emoji: '🌫️', ko: '새벽 안개 앰비언트', genre: '앰비언트', en: 'Misty Dawn Ambient', moods: ['몽환적인', '고요한', '맑은'], benefits: ['명상', '수면', '아침 루틴', '집중'], tags: ['앰비언트', '명상음악', '수면음악', '새벽', 'ambient', 'meditation', 'calm', 'sleep', 'morning', 'relax'] },
   rainy_valley:   { emoji: '🌧️', ko: '비 오는 날 앰비언트', genre: '빗소리 앰비언트', en: 'Rainy Ambient', moods: ['차분한', '사색적인', '포근한'], benefits: ['수면', '집중', '불면 완화', '휴식'], tags: ['빗소리', '앰비언트', '수면음악', 'ASMR', 'rain sounds', 'ambient', 'sleep', 'study', 'relaxing', 'rain'] },
   firelight_night:{ emoji: '🔥', ko: '모닥불 밤 앰비언트', genre: '앰비언트', en: 'Cozy Fireplace Ambient', moods: ['포근한', '따뜻한', '아늑한'], benefits: ['수면', '휴식', '독서'], tags: ['모닥불', '앰비언트', '수면음악', 'fireplace', 'cozy', 'ambient', 'sleep', 'relax', 'winter', 'reading'] },

@@ -13,7 +13,7 @@
   let ytConfigured = false;
 
   const THEME_LABELS = {
-    autumn_valley: '가을 계곡',
+    autumn_valley: '포근한 숲',
     golden_sunset: '황금 노을',
     misty_dawn: '새벽 안개',
     rosewood_night: '모닥불 밤',
@@ -184,6 +184,7 @@
 
   // ── 🤖 원클릭 자동: 테마에 맞춰 메타데이터→음악→영상까지 한 번에 ──
   const PRESET_THEME = {
+    boom_drive: 'golden_sunset',
     autumn_valley: 'autumn_valley', misty_dawn: 'misty_dawn', rainy_valley: 'deep_indigo',
     firelight_night: 'rosewood_night', city_drive: 'neon_city', funky_sunset: 'golden_sunset',
     dreamy_synth: 'dreamy_violet', deep_sleep: 'deep_indigo', lofi_rain: 'lofi_dusk', night_city: 'neon_city',
@@ -193,6 +194,8 @@
     const m = PRESET_THEME[presetSel.value];
     if (m) $('theme').value = m;
   });
+  // 시작 시에도 기본 프리셋에 맞춰 테마 동기화
+  if (PRESET_THEME[presetSel.value]) $('theme').value = PRESET_THEME[presetSel.value];
   $('autoGenerate').addEventListener('click', async () => {
     const btn = $('autoGenerate'), status = $('genStatus');
     btn.disabled = true;
@@ -204,9 +207,12 @@
       status.className = 'status'; status.innerHTML = '<span class="spinner"></span>제목·해시태그 작성 중…';
       try { await fillMetadata(true); } catch (_) { /* 메타 실패해도 계속 */ }
       // 영상 제목 오버레이가 비어있으면 프리셋 이름으로 채움
+      // (이름 앞 이모지만 떼고 괄호 영문은 제거 — 한글 첫 단어가 잘리던 버그 수정)
       if (!$('overlayText').value.trim()) {
         const p = presets[presetSel.value];
-        $('overlayText').value = p ? p.name.replace(/^[^\s]+\s/, '').split(' (')[0] : '';
+        $('overlayText').value = p
+          ? p.name.replace(/^[\p{Extended_Pictographic}️‍]+\s*/u, '').split(' (')[0].trim()
+          : '';
       }
       // 3) 음악 생성
       const okMusic = await generateMusic();

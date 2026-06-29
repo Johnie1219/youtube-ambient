@@ -24,11 +24,26 @@
     };
   }
 
-  // 프리셋: 가을 계곡을 기본으로, 분위기 변주 4종
+  // 프리셋: 밝고 신나는 "두둠칫" 그루브를 기본으로.
   const PRESETS = {
+    // ── 기본: 밝고 청량한 두둠칫 드라이브 ──────────────────────────
+    boom_drive: {
+      name: '🔥 두둠칫 드라이브 (Bright Drive)',
+      desc: '두둠칫! 밝고 청량한 드럼·베이스 그루브 — 신나는 드라이브용',
+      mode: 'groovy', bpm: 112, reverbWet: 0.12, swing: 0.54,
+      chords: [
+        { stab: ['E4', 'G4', 'B4', 'D5'], bass: 'C2' }, // Cmaj9
+        { stab: ['F4', 'A4', 'C5', 'E5'], bass: 'F1' }, // Fmaj7
+        { stab: ['E4', 'G4', 'B4', 'D5'], bass: 'A1' }, // Am9
+        { stab: ['F4', 'G4', 'B4', 'D5'], bass: 'G1' }, // G(add)
+      ],
+      scale: ['G5', 'A5', 'B5', 'D6', 'E6', 'G6'],
+    },
+
+    // ── 잔잔한 앰비언트 ──────────────────────────────────────────
     autumn_valley: {
-      name: '가을 계곡 (Autumn Valley)',
-      desc: '안개 낀 단풍 숲, 따뜻하고 잔잔한 기본 무드',
+      name: '🌅 포근한 오후 (Warm Afternoon)',
+      desc: '따뜻하고 잔잔한 패드 중심의 휴식 무드',
       bpm: 60,
       reverbWet: 0.5,
       noiseLevel: 0.5,
@@ -59,7 +74,7 @@
       scale: ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6'],
     },
     rainy_valley: {
-      name: '비 오는 계곡 (Rainy Valley)',
+      name: '🌧️ 비 오는 날 (Rainy Day)',
       desc: '빗소리 질감이 짙고 사색적인 단조',
       bpm: 56,
       reverbWet: 0.55,
@@ -205,16 +220,25 @@
       envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.2 }, volume: -7,
     }).connect(reverb);
 
+    // 코드 스탭: 밝은 톱니(fatsawtooth)를 로우패스로 살짝 다듬어 청량하면서 부드럽게.
+    const chordFilter = new T.Filter({ type: 'lowpass', frequency: 3600, Q: 0.6 }).connect(reverb);
     const chordSynth = new T.PolySynth(T.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.01, decay: 0.32, sustain: 0.18, release: 0.3 }, volume: -15,
-    }).connect(reverb);
+      oscillator: { type: 'fatsawtooth', count: 2, spread: 18 },
+      envelope: { attack: 0.005, decay: 0.28, sustain: 0.16, release: 0.28 }, volume: -14,
+    }).connect(chordFilter);
     chordSynth.maxPolyphony = 16;
 
     const lead = new T.Synth({
       oscillator: { type: 'square' },
-      envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 }, volume: -19,
+      envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 }, volume: -18,
     }).connect(reverb);
+
+    // 반짝임(아르페지오) — 코드음을 한 옥타브 올려 짧게 통통. "밝고 청량한" 느낌의 핵심.
+    const arpDelay = new T.FeedbackDelay({ delayTime: 60 / bpm / 2, feedback: 0.18, wet: 0.25 }).connect(reverb);
+    const arp = new T.Synth({
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.002, decay: 0.12, sustain: 0.0, release: 0.12 }, volume: -20,
+    }).connect(arpDelay);
 
     const spb = 60 / bpm, bar = spb * 4, eighth = spb / 2;
     const numBars = Math.ceil(duration / bar);
@@ -241,15 +265,20 @@
       if (t0 >= duration) break;
       const chord = chords[b % chords.length];
       const bn = bassTriplet(chord.bass);
-      const intro = b < 2;                 // 인트로 2마디: 드럼 빼고 코드·베이스로 빌드업
+      const intro = b < 1;                 // 인트로 1마디만: 바로 그루브로 진입(신나게)
       const fill = !intro && b % 4 === 3;  // 4마디마다 마지막 마디에 필인
 
-      // 킥: 4-on-the-floor (인트로 제외). 필 마디는 4박째를 비워 필인에 공간.
+      // 킥: 4-on-the-floor + "두둠" 더블킥(1·3박 16분 뒤 살짝) → 통통 튀는 바운스.
       if (!intro) {
         for (let beat = 0; beat < 4; beat++) {
           if (fill && beat === 3) continue;
           const t = t0 + beat * spb + hz(6);
-          if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, vh(0.92, 0.05));
+          if (fits(t)) kick.triggerAttackRelease('C1', 0.18, t, vh(0.95, 0.05));
+          // "두둠": 1·3박 바로 뒤 16분에 약한 킥 한 방 더
+          if ((beat === 0 || beat === 2) && !(fill && beat === 2)) {
+            const td = t0 + (beat + 0.5) * spb + hz(5);
+            if (fits(td)) kick.triggerAttackRelease('C1', 0.14, td, 0.6);
+          }
         }
       }
       // 스네어: 2·4박 + 고스트 스네어(엇박, 아주 약하게)로 펑크 그루브
@@ -294,6 +323,19 @@
       for (const off of [1.5, 3.5]) {
         const t = t0 + off * spb + hz(6);
         if (fits(t)) chordSynth.triggerAttackRelease(chord.stab, 0.22, t, vh(0.55, 0.08));
+      }
+      // 반짝임(아르페지오): 코드음을 한 옥타브 올려 8분 통통 — 밝고 청량한 윤기.
+      if (!intro) {
+        const up = chord.stab.map((n) => T.Frequency(n).transpose(12).toNote());
+        let prev = -1;
+        for (let e = 0; e < 8; e++) {
+          if (e % 2 === 0) continue;           // 오프비트(엇박)에만 → 가벼운 그루브
+          let t = eighthAt(t0, e) + hz(4);
+          if (t <= prev) t = prev + 0.03;
+          const note = up[(e >> 1) % up.length];
+          if (fits(t)) arp.triggerAttackRelease(note, eighth * 0.6, t, vh(0.5, 0.15));
+          prev = t;
+        }
       }
       // 리드: 2마디마다 스파스 리프 (인트로 제외). 스윙 그리드 위에 얹음.
       if (!intro && b % 2 === 1) {
