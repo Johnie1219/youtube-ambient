@@ -211,13 +211,24 @@
     firelight_night: 'rosewood_night', city_drive: 'neon_city', funky_sunset: 'golden_sunset',
     dreamy_synth: 'dreamy_violet', deep_sleep: 'deep_indigo', lofi_rain: 'lofi_dusk', night_city: 'neon_city',
   };
-  // 음악 프리셋을 바꾸면 영상 테마도 어울리게 자동 동기화
-  presetSel.addEventListener('change', () => {
-    const m = PRESET_THEME[presetSel.value];
-    if (m) $('theme').value = m;
-  });
-  // 시작 시에도 기본 프리셋에 맞춰 테마 동기화
-  if (PRESET_THEME[presetSel.value]) $('theme').value = PRESET_THEME[presetSel.value];
+  // 프리셋에 어울리는 실사 영상 키워드(영어가 검색 정확도 높음)
+  const PRESET_KEYWORD = {
+    boom_drive: 'city night drive', autumn_valley: 'autumn forest', misty_dawn: 'misty mountain sunrise',
+    rainy_valley: 'rain on window', firelight_night: 'cozy fireplace', city_drive: 'city night drive',
+    funky_sunset: 'sunset beach drive', dreamy_synth: 'aurora night sky', deep_sleep: 'starry night sky',
+    lofi_rain: 'rainy city street', night_city: 'tokyo city night',
+  };
+  // 사용자가 키워드를 직접 입력하면 자동 채움을 멈춤
+  $('keyword').addEventListener('input', () => ($('keyword').dataset.touched = '1'));
+  function syncByPreset() {
+    const t = PRESET_THEME[presetSel.value];
+    if (t) $('theme').value = t;
+    const kw = PRESET_KEYWORD[presetSel.value];
+    if (kw && !$('keyword').dataset.touched) $('keyword').value = kw;
+  }
+  // 음악 프리셋을 바꾸면 영상 테마·키워드도 어울리게 자동 동기화
+  presetSel.addEventListener('change', syncByPreset);
+  syncByPreset(); // 시작 시에도 기본 프리셋에 맞춰
   $('autoGenerate').addEventListener('click', async () => {
     const btn = $('autoGenerate'), status = $('genStatus');
     btn.disabled = true;
@@ -251,7 +262,10 @@
       let settled = false;
       es.onmessage = (ev) => {
         let d; try { d = JSON.parse(ev.data); } catch (_) { return; }
-        if (d.status === 'processing') setProgress(d.percent || 0, true);
+        if (d.status === 'processing') {
+          setProgress(d.percent || 0, true);
+          if (d.note) status.innerHTML = '<span class="spinner"></span>' + d.note;
+        }
         else if (d.status === 'done') {
           settled = true; es.close(); setProgress(100, true);
           const fileUrl = '/api/videos/' + jobId + '/file';

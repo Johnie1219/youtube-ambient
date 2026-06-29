@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.29-5';
+const APP_VERSION = '2026.06.29-6';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -117,6 +117,7 @@ function notify(job) {
   const payload = JSON.stringify({
     status: job.status,
     percent: Math.round(job.percent),
+    note: job.note || null,
     error: job.error,
   });
   for (const send of job.listeners) {
@@ -341,7 +342,9 @@ app.post(
       const k = (media.mimetype || '').startsWith('image') ? 'image' : 'video';
       startPass1(k, media.path, 5);
     } else if (keyword && stock.isConfigured()) {
-      // 키워드 → Pexels 실사 영상 검색·다운로드. 실패하면 그라데이션으로 폴백.
+      // 키워드 → 실사 영상 검색·다운로드. 실패하면 그라데이션으로 폴백.
+      job.note = '실사 영상 찾는 중…';
+      notify(job);
       stock
         .search(keyword, { targetW: w, seed: seedNum })
         .then((found) => {
@@ -352,9 +355,15 @@ app.post(
             source: found.source, query: keyword,
             author: found.author, authorUrl: found.authorUrl, pageUrl: found.pageUrl,
           };
-          return stock.download(found.url, stockPath).then(() => startPass1('video', stockPath, 10));
+          job.note = '영상 내려받는 중…';
+          notify(job);
+          return stock.download(found.url, stockPath).then(() => {
+            job.note = '인코딩 중…';
+            notify(job);
+            startPass1('video', stockPath, 10);
+          });
         })
-        .catch(() => startPass1('gradient', null, 5));
+        .catch(() => { job.note = null; startPass1('gradient', null, 5); });
     } else {
       startPass1('gradient', null, 5);
     }
