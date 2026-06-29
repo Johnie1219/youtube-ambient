@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AI Music Studio</string>
-    <!-- 앱이 열 주소. Tailscale로 접속(폰에 Tailscale 연결 필요).
-         나중에 공개 https 주소(Funnel)가 생기면 이 값만 바꿔 재빌드하면 됩니다. -->
-    <string name="app_url">http://100.73.34.47:5174</string>
+    <!-- 공개 https 주소(Tailscale Funnel, 8443 포트). 분양앱과 동일한 방식.
+         이 주소는 폰에 Tailscale이 없어도 열립니다(공개 인터넷 https).
+         ※ NAS에서 아래 funnel 명령을 한 번 실행해야 활성화됩니다(README/채팅 참고). -->
+    <string name="app_url">https://jwkim1219.taila18546.ts.net:8443</string>
 </resources>
