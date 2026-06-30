@@ -265,16 +265,8 @@
       // 2) 제목·해시태그·설명 자동 작성
       status.className = 'status'; status.innerHTML = '<span class="spinner"></span>제목·해시태그 작성 중…';
       try { await fillMetadata(true); } catch (_) { /* 메타 실패해도 계속 */ }
-      // 영상 제목 오버레이가 비어있으면 프리셋 이름으로 채움
-      // (이름 앞 이모지만 떼고 괄호 영문은 제거 — 한글 첫 단어가 잘리던 버그 수정)
-      if (!$('overlayText').value.trim()) {
-        const p = presets[presetSel.value];
-        $('overlayText').value = p
-          ? p.name.replace(/^[\p{Extended_Pictographic}️‍]+\s*/u, '').split(' (')[0].trim()
-          : '';
-      }
-      // 부제가 비어있으면 기본 "PLAYLIST"
-      if (!$('subtitle').value.trim()) $('subtitle').value = 'PLAYLIST';
+      // 제목·부제는 자동으로 채우지 않음 — 비워두면 영상에 글씨가 안 들어감.
+      // (채널 이름이 정해지면 그때 직접 입력해서 넣을 예정)
       // 3) 음악 생성
       const okMusic = await generateMusic();
       if (!okMusic) return;

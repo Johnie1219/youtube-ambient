@@ -1,7 +1,7 @@
 /* 서비스 워커 — 앱 셸 캐시(오프라인/빠른 실행). HTTPS 또는 localhost에서만 등록됨.
    전략: HTML/JS/CSS는 "네트워크 우선"(항상 최신) + 오프라인 폴백,
         무겁고 잘 안 바뀌는 자원(Tone.js·아이콘)만 "캐시 우선". */
-const CACHE = 'ambient-v16';
+const CACHE = 'ambient-v17';
 const SHELL = [
   '/',
   '/index.html',
