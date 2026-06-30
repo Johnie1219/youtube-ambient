@@ -240,6 +240,25 @@
       envelope: { attack: 0.002, decay: 0.12, sustain: 0.0, release: 0.12 }, volume: -20,
     }).connect(arpDelay);
 
+    // 안전장치: 모노 신스는 트리거 시간이 항상 직전보다 같거나 커야 한다(아니면 Web Audio 에러).
+    // 각 악기의 triggerAttackRelease에서 time 인자를 직전 값 이상으로 보정한다.
+    // time 인자 위치: 음정 받는 신스는 (note,dur,time,vel)→2, NoiseSynth는 (dur,time,vel)→1.
+    function guardTime(synth, timeIdx) {
+      const orig = synth.triggerAttackRelease.bind(synth);
+      let last = -1;
+      synth.triggerAttackRelease = function () {
+        const args = Array.prototype.slice.call(arguments);
+        let t = args[timeIdx];
+        if (typeof t === 'number') {
+          if (!(t > last)) t = last + 0.002; // NaN·역행 모두 보정
+          last = t; args[timeIdx] = t;
+        }
+        return orig.apply(synth, args);
+      };
+    }
+    guardTime(kick, 2); guardTime(snare, 1); guardTime(hat, 1);
+    guardTime(bass, 2); guardTime(chordSynth, 2); guardTime(lead, 2); guardTime(arp, 2);
+
     const spb = 60 / bpm, bar = spb * 4, eighth = spb / 2;
     const numBars = Math.ceil(duration / bar);
     const chords = preset.chords, scale = preset.scale;
@@ -284,15 +303,14 @@
           }
         }
       }
-      // 스네어: 2·4박 + 고스트 스네어(엇박, 아주 약하게)로 펑크 그루브
+      // 스네어: 2·4박 + 고스트(3박 직전). 시간 오름차순으로 스케줄(1박 → 고스트 → 3박).
       if (!intro && !fill) {
-        for (const beat of [1, 3]) {
-          const t = jit(t0 + beat * spb, 7);
-          if (fits(t)) snare.triggerAttackRelease(0.16, t, vh(0.85, 0.06));
-        }
-        // 고스트: 3박 직전 16분 위치
-        const tg = jit(t0 + 2.75 * spb, 5);
-        if (fits(tg)) snare.triggerAttackRelease(0.05, tg, 0.18 + rng() * 0.1);
+        const s1 = jit(t0 + 1 * spb, 7);
+        if (fits(s1)) snare.triggerAttackRelease(0.16, s1, vh(0.85, 0.06));
+        const sg = jit(t0 + 2.75 * spb, 5); // 고스트
+        if (fits(sg)) snare.triggerAttackRelease(0.05, sg, 0.18 + rng() * 0.1);
+        const s3 = jit(t0 + 3 * spb, 7);
+        if (fits(s3)) snare.triggerAttackRelease(0.16, s3, vh(0.85, 0.06));
       }
       // 하이햇: 8분, 오프비트 강세("칫"). 스윙 적용.
       if (!intro) {
