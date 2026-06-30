@@ -120,15 +120,29 @@ async function searchPexels(q, targetW, seed) {
 // ── Pixabay ───────────────────────────────────────────────────────
 async function searchPixabay(q, targetW, seed) {
   const tq = translate(q);
-  const params = new URLSearchParams({
-    key: process.env.PIXABAY_API_KEY, q: tq, per_page: '20', video_type: 'film', safesearch: 'true',
-  });
-  if (hasHangul(tq)) params.set('lang', 'ko');
-  const json = await getJson('https://pixabay.com/api/videos/?' + params.toString());
-  const hits = (json && json.hits) || [];
+  const base = {
+    key: process.env.PIXABAY_API_KEY, q: tq, per_page: '40',
+    video_type: 'film', safesearch: 'true', order: 'popular',
+  };
+  if (hasHangul(tq)) base.lang = 'ko';
+  const fetchHits = async (extra) => {
+    const p = new URLSearchParams(Object.assign({}, base, extra));
+    const json = await getJson('https://pixabay.com/api/videos/?' + p.toString());
+    return (json && json.hits) || [];
+  };
+  // ① 에디터 추천(큐레이션=더 아름답고 영화 같은 클립) 우선
+  let hits = await fetchHits({ editors_choice: 'true' });
+  // ② 결과가 적으면 일반 인기순으로 보강(중복 제거)
+  if (hits.length < 5) {
+    const seen = new Set(hits.map((h) => h.id));
+    for (const h of await fetchHits({})) if (!seen.has(h.id)) hits.push(h);
+  }
   if (!hits.length) return null;
+  // 가로·HD·충분한 길이 우선(밋밋한 세로/저화질 제외)
+  const nice = hits.filter((h) => (h.videos && (h.videos.large || h.videos.medium)) && (h.duration || 0) >= 5);
+  const pool = nice.length ? nice : hits;
   const rng = mulberry32(seed ^ (q.length * 2654435761));
-  const hit = hits[Math.floor(rng() * hits.length)];
+  const hit = pool[Math.floor(rng() * pool.length)];
   const sizes = hit.videos || {};
   const files = Object.keys(sizes).map((k) => sizes[k]).filter(Boolean);
   const file = bestByWidth(files, targetW);

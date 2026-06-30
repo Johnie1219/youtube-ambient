@@ -12,6 +12,7 @@
   let wavBlob = null, wavUrl = null, audioDuration = 0;
   let ytConfigured = false;
   let sourceMode = 'keyword'; // 'keyword'(실사 영상) | 'upload'(내 파일)
+  let stockSeed = Math.floor(Math.random() * 1e9); // 실사 영상 선택 시드(미리보기 때마다 새로)
 
   const THEME_LABELS = {
     autumn_valley: '포근한 숲',
@@ -114,8 +115,8 @@
     const btn = $('previewStock'), old = btn.textContent;
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
-      const seed = parseInt($('seed').value, 10) || 1;
-      const resp = await fetch('/api/stock/search?keyword=' + encodeURIComponent(kw) + '&seed=' + seed);
+      stockSeed = Math.floor(Math.random() * 1e9); // 누를 때마다 새 영상
+      const resp = await fetch('/api/stock/search?keyword=' + encodeURIComponent(kw) + '&seed=' + stockSeed);
       const j = await resp.json();
       if (!resp.ok) throw new Error(j.error || '검색 실패');
       $('stockThumb').src = j.image || '';
@@ -189,7 +190,8 @@
     if (media) fd.append('media', media);
     fd.append('theme', $('theme').value);
     fd.append('keyword', $('keyword').value);
-    fd.append('seed', String(parseInt($('seed').value, 10) || 1));
+    // 실사 영상 선택 시드: 미리보기로 고른 그 영상으로 만들어지도록 stockSeed 사용
+    fd.append('seed', String(stockSeed));
     fd.append('preset', presetSel.value);
     fd.append('duration', String(audioDuration));
     fd.append('resolution', $('resolution').value);
