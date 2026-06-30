@@ -130,17 +130,22 @@ async function searchPixabay(q, targetW, seed) {
     const json = await getJson('https://pixabay.com/api/videos/?' + p.toString());
     return (json && json.hits) || [];
   };
-  // ① 에디터 추천(큐레이션=더 아름답고 영화 같은 클립) 우선
+  // ① 에디터 추천(큐레이션=아름다운 클립) + ② 일반 인기순을 합쳐 후보 풀 구성(중복 제거)
   let hits = await fetchHits({ editors_choice: 'true' });
-  // ② 결과가 적으면 일반 인기순으로 보강(중복 제거)
-  if (hits.length < 5) {
-    const seen = new Set(hits.map((h) => h.id));
-    for (const h of await fetchHits({})) if (!seen.has(h.id)) hits.push(h);
-  }
+  const seen = new Set(hits.map((h) => h.id));
+  for (const h of await fetchHits({})) if (!seen.has(h.id)) hits.push(h);
   if (!hits.length) return null;
   // 가로·HD·충분한 길이 우선(밋밋한 세로/저화질 제외)
   const nice = hits.filter((h) => (h.videos && (h.videos.large || h.videos.medium)) && (h.duration || 0) >= 5);
-  const pool = nice.length ? nice : hits;
+  let pool = nice.length ? nice : hits;
+  // 관련도: 클립 태그에 검색어 단어가 들어간 개수로 점수 → 가장 잘 맞는 클립만 남김.
+  // ("city night drive"에서 drive 태그까지 있는 영상을 우선 → 엉뚱한 결과 줄임)
+  const words = tq.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  if (words.length) {
+    const score = (h) => { const t = (h.tags || '').toLowerCase(); return words.reduce((n, w) => n + (t.indexOf(w) >= 0 ? 1 : 0), 0); };
+    const maxS = pool.reduce((m, h) => Math.max(m, score(h)), 0);
+    if (maxS > 0) pool = pool.filter((h) => score(h) >= maxS);
+  }
   const rng = mulberry32(seed ^ (q.length * 2654435761));
   const hit = pool[Math.floor(rng() * pool.length)];
   const sizes = hit.videos || {};
