@@ -45,6 +45,12 @@
   presetSel.addEventListener('change', applyPresetDefaults);
   $('theme').addEventListener('change', prefillMeta);
   $('reverb').addEventListener('input', () => ($('reverbVal').textContent = $('reverb').value));
+  // 영상 보정 슬라이더 라이브 표시
+  $('brightness').addEventListener('input', () => {
+    const v = parseInt($('brightness').value, 10) || 0;
+    $('brightVal').textContent = (v > 0 ? '+' : '') + v;
+  });
+  $('saturation').addEventListener('input', () => ($('satVal').textContent = $('saturation').value));
   $('randomSeed').addEventListener('click', () => ($('seed').value = Math.floor(Math.random() * 1000000)));
 
   // 모바일: 음악 길이 기본값 낮춤
@@ -201,6 +207,9 @@
     fd.append('description', $('vidDesc').value);
     fd.append('overlayText', $('overlayText').value);
     fd.append('subtitle', $('subtitle').value);
+    // 영상 보정(밝기·채도) — 슬라이더(%) → 디케이션 값
+    fd.append('brightness', String(((parseInt($('brightness').value, 10) || 0) / 100)));
+    fd.append('saturation', String(((parseInt($('saturation').value, 10) || 100) / 100)));
 
     btn.disabled = true; $('generate').disabled = true; $('autoGenerate').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>업로드 중…';

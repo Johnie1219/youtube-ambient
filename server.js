@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.30-4';
+const APP_VERSION = '2026.06.30-5';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -157,8 +157,12 @@ const THEMES = {
   neon_city:      { c0: '0x0a1428', c1: '0x2a1a4a', speed: 0.007 }, // 나이트 시티: 네온 블루/퍼플
 };
 
-function buildVideoFilter({ kind, w, h, fps, duration, loopSec }) {
+function buildVideoFilter({ kind, w, h, fps, duration, loopSec, look }) {
   const period = loopSec || 10; // 배경 호흡/모션 주기(초) — 루프 클립 길이와 맞추면 이음새 없음
+  // 사용자 보정(밝기·채도) + 생기용 약한 대비. 실사/이미지에 적용해 "화사하게".
+  const lk = look || {};
+  const eqLook =
+    `eq=brightness=${lk.brightness}:saturation=${lk.saturation}:contrast=${lk.contrast}`;
   if (kind === 'image') {
     const frames = Math.max(1, Math.ceil(duration * fps));
     // 살짝 크게 스케일 후 천천히 줌인(켄번스). zoompan은 입력 1프레임을 frames개로 늘린다.
@@ -166,7 +170,7 @@ function buildVideoFilter({ kind, w, h, fps, duration, loopSec }) {
       `scale=${Math.round(w * 1.2)}:-2,` +
       `zoompan=z='min(zoom+0.00015,1.15)':d=${frames}:` +
       `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${w}x${h}:fps=${fps},` +
-      `setsar=1,format=yuv420p`
+      `${eqLook},setsar=1,format=yuv420p`
     );
   }
   if (kind === 'gradient') {
@@ -174,17 +178,17 @@ function buildVideoFilter({ kind, w, h, fps, duration, loopSec }) {
     // (eq 매프레임 sin + vignette)을 작은 프레임에서 처리한 뒤 목표 해상도로 업스케일.
     // → ARM NAS에서 인코딩 속도 대폭 향상(부드러운 그라데이션이라 확대해도 깨끗).
     return (
-      `eq=brightness='0.05*sin(2*PI*t/${period})':saturation='1.06+0.10*sin(2*PI*t/${period})':eval=frame,` +
+      `eq=brightness='${lk.brightness}+0.05*sin(2*PI*t/${period})':saturation='${lk.saturation}+0.10*sin(2*PI*t/${period})':eval=frame,` +
       `vignette,` +
       `scale=${w}:${h}:flags=bilinear,` +
       `fps=${fps},setsar=1,format=yuv420p`
     );
   }
-  // 영상 클립: 비율 유지 스케일 + 레터박스 패드
+  // 영상 클립: 비율 유지 스케일 + 레터박스 패드 + 보정(화사하게)
   return (
     `scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
     `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,` +
-    `fps=${fps},setsar=1,format=yuv420p`
+    `${eqLook},fps=${fps},setsar=1,format=yuv420p`
   );
 }
 
@@ -261,6 +265,14 @@ app.post(
     if (resv === '4k') { w = 3840; h = 2160; crf = 23; resLabel = '4k'; }
     else if (resv === '720p') { w = 1280; h = 720; crf = 20; resLabel = '720p'; }
 
+    // 영상 보정(밝기·채도) — 기본값부터 화사하게. 사용자 슬라이더로 조절 가능.
+    const clampNum = (v, lo, hi, d) => { const n = parseFloat(v); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
+    const look = {
+      brightness: clampNum(req.body.brightness, -0.3, 0.3, 0.06),
+      saturation: clampNum(req.body.saturation, 0, 3, 1.18),
+      contrast: 1.06,
+    };
+
     const jobId = crypto.randomBytes(8).toString('hex');
     const outFile = path.join(OUTPUTS, jobId + '.mp4');
 
@@ -329,7 +341,7 @@ app.post(
           .inputOptions(['-f', 'lavfi']);
       }
 
-      const vf = buildVideoFilter({ kind: srcKind, w, h, fps, duration: loopSec, loopSec });
+      const vf = buildVideoFilter({ kind: srcKind, w, h, fps, duration: loopSec, loopSec, look });
       let chain = vf;
       const overlayText = (req.body.overlayText || '').toString().trim();
       const subtitleText = (req.body.subtitle || '').toString().trim();
