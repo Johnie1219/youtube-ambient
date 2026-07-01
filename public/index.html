@@ -55,12 +55,23 @@
       <p class="tagline">아래 세 가지만 정하면 끝. 나머지는 AI가 알아서 채웁니다.</p>
 
       <div class="grid">
-        <!-- ① 분위기 -->
-        <label class="field full">
-          <span class="label">① 분위기</span>
-          <select id="preset"></select>
-          <small class="hint" id="presetDesc"></small>
-        </label>
+        <!-- ① 음악 -->
+        <div class="field full">
+          <span class="label">① 음악</span>
+          <div class="seg" id="musicToggle">
+            <button type="button" class="seg-btn active" data-music="upload">🎵 내 음악 올리기 (Suno 등)</button>
+            <button type="button" class="seg-btn" data-music="generate">🤖 코드로 생성</button>
+          </div>
+          <div id="musicUploadRow" class="src-row">
+            <input id="audioFile" type="file" accept="audio/*" />
+            <small class="hint">Suno 등에서 만든 곡(mp3·wav)을 올리면 그 음악으로 영상을 만듭니다.</small>
+            <span id="audioInfo" class="status"></span>
+          </div>
+          <div id="musicGenRow" class="src-row hidden">
+            <select id="preset"></select>
+            <small class="hint" id="presetDesc"></small>
+          </div>
+        </div>
 
         <!-- ② 영상 만드는 방식 -->
         <div class="field full">

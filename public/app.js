@@ -12,6 +12,8 @@
   let wavBlob = null, wavUrl = null, audioDuration = 0;
   let ytConfigured = false;
   let sourceMode = 'keyword'; // 'keyword'(실사 영상) | 'upload'(내 파일)
+  let musicMode = 'upload';   // 'upload'(내 음악 파일) | 'generate'(코드 생성)
+  let uploadedAudioFile = null;
   let stockSeed = Math.floor(Math.random() * 1e9); // 실사 영상 선택 시드(미리보기 때마다 새로)
 
   const THEME_LABELS = {
@@ -134,6 +136,37 @@
     } finally { btn.disabled = false; btn.textContent = old; }
   });
 
+  // ── 음악 소스 토글 (내 음악 올리기 ↔ 코드 생성) ──────────
+  document.querySelectorAll('#musicToggle .seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      musicMode = btn.dataset.music;
+      document.querySelectorAll('#musicToggle .seg-btn').forEach((b) =>
+        b.classList.toggle('active', b === btn));
+      $('musicUploadRow').classList.toggle('hidden', musicMode !== 'upload');
+      $('musicGenRow').classList.toggle('hidden', musicMode !== 'generate');
+    });
+  });
+  // 음악 파일 올리면 길이 읽어두기
+  $('audioFile').addEventListener('change', () => {
+    const f = $('audioFile').files[0];
+    uploadedAudioFile = f || null;
+    const info = $('audioInfo');
+    $('render').disabled = !f;
+    if (!f) { info.textContent = ''; return; }
+    info.className = 'status'; info.textContent = '길이 확인 중…';
+    const url = URL.createObjectURL(f);
+    const a = new Audio();
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => {
+      audioDuration = isFinite(a.duration) && a.duration > 1 ? a.duration : 0;
+      URL.revokeObjectURL(url);
+      info.className = 'status ok';
+      info.textContent = '✓ ' + f.name + (audioDuration ? ' · ' + fmtTime(audioDuration) : '');
+    };
+    a.onerror = () => { info.className = 'status err'; info.textContent = '이 파일을 읽을 수 없어요.'; };
+    a.src = url;
+  });
+
   // ── 영상 소스 토글 (키워드 ↔ 내 파일) ────────────────────
   document.querySelectorAll('#sourceToggle .seg-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -188,10 +221,12 @@
 
   // ── MP4 만들기 ────────────────────────────────────────────
   async function renderMp4() {
-    if (!wavBlob) return false;
+    const usingUpload = musicMode === 'upload';
+    const audioData = usingUpload ? uploadedAudioFile : wavBlob;
+    if (!audioData) return false;
     const btn = $('render'), status = $('renderStatus');
     const fd = new FormData();
-    fd.append('audio', wavBlob, 'ambient.wav');
+    fd.append('audio', audioData, usingUpload ? (uploadedAudioFile.name || 'music.mp3') : 'ambient.wav');
     const media = sourceMode === 'upload' ? $('media').files[0] : null;
     if (media) fd.append('media', media);
     fd.append('theme', $('theme').value);
@@ -199,7 +234,8 @@
     // 실사 영상 선택 시드: 미리보기로 고른 그 영상으로 만들어지도록 stockSeed 사용
     fd.append('seed', String(stockSeed));
     fd.append('preset', presetSel.value);
-    fd.append('duration', String(audioDuration));
+    // 업로드 음악은 길이를 못 읽었을 때 큰 값으로 보내고 서버 -shortest가 실제 길이에서 자름
+    fd.append('duration', String(audioDuration > 1 ? audioDuration : 600));
     fd.append('resolution', $('resolution').value);
     fd.append('fps', $('fps').value);
     fd.append('title', $('vidTitle').value);
@@ -267,9 +303,17 @@
       try { await fillMetadata(true); } catch (_) { /* 메타 실패해도 계속 */ }
       // 제목·부제는 자동으로 채우지 않음 — 비워두면 영상에 글씨가 안 들어감.
       // (채널 이름이 정해지면 그때 직접 입력해서 넣을 예정)
-      // 3) 음악 생성
-      const okMusic = await generateMusic();
-      if (!okMusic) return;
+      // 3) 음악: 업로드 모드면 올린 파일 사용, 아니면 코드로 생성
+      if (musicMode === 'upload') {
+        if (!uploadedAudioFile) {
+          status.className = 'status err';
+          status.textContent = '먼저 음악 파일을 올려주세요 (① 음악 → 내 음악 올리기).';
+          return;
+        }
+      } else {
+        const okMusic = await generateMusic();
+        if (!okMusic) return;
+      }
       // 4) 영상(MP4)까지
       const okVideo = await renderMp4();
       if (okVideo) document.getElementById('gallery').scrollIntoView({ behavior: 'smooth' });
