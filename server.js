@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.30-8';
+const APP_VERSION = '2026.06.30-9';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -261,9 +261,11 @@ app.post(
     const duration = Math.max(1, parseFloat(req.body.duration) || 60);
     const fps = parseInt(req.body.fps, 10) === 60 ? 60 : 30;
     const resv = String(req.body.resolution).toLowerCase();
-    let w = 1920, h = 1080, crf = 20, resLabel = '1080p';
-    if (resv === '4k') { w = 3840; h = 2160; crf = 23; resLabel = '4k'; }
-    else if (resv === '720p') { w = 1280; h = 720; crf = 20; resLabel = '720p'; }
+    // 유튜브 권장 비트레이트에 맞춰 crf + 비트레이트 상한(maxrate)으로 용량 최적화.
+    // (배경/루프는 움직임이 적어 실제 비트레이트는 상한보다 훨씬 낮게 나옴)
+    let w = 1920, h = 1080, crf = 23, maxrate = '9M', bufsize = '16M', resLabel = '1080p';
+    if (resv === '4k') { w = 3840; h = 2160; crf = 22; maxrate = '45M'; bufsize = '80M'; resLabel = '4k'; }
+    else if (resv === '720p') { w = 1280; h = 720; crf = 24; maxrate = '5M'; bufsize = '10M'; resLabel = '720p'; }
 
     // 영상 보정(밝기·채도) — 기본값부터 화사하게. 사용자 슬라이더로 조절 가능.
     const clampNum = (v, lo, hi, d) => { const n = parseFloat(v); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
@@ -363,20 +365,26 @@ app.post(
         } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
       }
 
+      // 배경 루프는 짧아서(5~10초) 느린 preset을 써도 빠름 → 압축 효율↑ 파일 용량 대폭↓.
+      // crf + maxrate(유튜브 권장 상한)로 화질 유지하며 용량 최소화. 사진 배경은 stillimage 튠.
+      const vOpts = [
+        '-map', '[vout]',
+        '-an',
+        '-c:v', 'libx264',
+        '-preset', resLabel === '4k' ? 'fast' : 'medium',
+        '-crf', String(crf),
+        '-maxrate', maxrate,
+        '-bufsize', bufsize,
+        '-pix_fmt', 'yuv420p',
+        '-profile:v', 'high',
+        '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
+        '-r', String(fps),
+        '-t', String(loopSec),
+      ];
+      if (srcKind === 'image') vOpts.push('-tune', 'stillimage');
       c1
         .complexFilter([`[0:v]${chain}[vout]`])
-        .outputOptions([
-          '-map', '[vout]',
-          '-an',
-          '-c:v', 'libx264',
-          '-preset', 'ultrafast',
-          '-crf', String(crf),
-          '-pix_fmt', 'yuv420p',
-          '-profile:v', 'high',
-          '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
-          '-r', String(fps),
-          '-t', String(loopSec),
-        ])
+        .outputOptions(vOpts)
         .on('progress', (p) => {
           const sec = timemarkToSeconds(p.timemark);
           job.percent = Math.min(35, (sec / loopSec) * 35);
@@ -429,7 +437,7 @@ app.post(
           '-map', '1:a:0',
           '-c:v', 'copy', // 재인코딩 없음 → 길이와 무관하게 빠름
           '-c:a', 'aac',
-          '-b:a', '320k',
+          '-b:a', '192k',
           '-ar', '48000',
           '-ac', '2',
           '-t', String(duration),
