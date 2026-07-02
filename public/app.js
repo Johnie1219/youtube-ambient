@@ -158,9 +158,10 @@
       if (j.title) { $('vidTitle').value = j.title; $('vidTitle').dataset.touched = '1'; }
       if (j.tags && j.tags.length) { $('vidTags').value = j.tags.join(', '); $('vidTags').dataset.touched = '1'; }
       if (j.description) { $('vidDesc').value = j.description; $('vidDesc').dataset.touched = '1'; }
-      // Suno 프롬프트 표시
-      if (j.sunoPrompt) {
-        $('sunoPromptText').value = j.sunoPrompt;
+      // Suno 프롬프트 표시 (Style / Lyrics 두 칸)
+      if (j.sunoStyle || j.sunoLyrics) {
+        $('sunoStyleText').value = j.sunoStyle || '';
+        $('sunoLyricsText').value = j.sunoLyrics || '[Instrumental]';
         $('sunoBox').classList.remove('hidden');
       }
       $('planHint').textContent = (j.provider === 'claude')
@@ -170,16 +171,20 @@
       alert('AI 기획 실패: ' + (e.message || e));
     } finally { btn.disabled = false; btn.textContent = old; }
   });
-  $('copySuno').addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText($('sunoPromptText').value);
-      $('copySuno').textContent = '✅ 복사됨';
-      setTimeout(() => ($('copySuno').textContent = '📋 프롬프트 복사'), 1500);
-    } catch (_) {
-      $('sunoPromptText').select();
-      document.execCommand('copy');
-    }
-  });
+  function wireCopy(btnId, srcId, label) {
+    $(btnId).addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText($(srcId).value);
+        $(btnId).textContent = '✅ 복사됨';
+        setTimeout(() => ($(btnId).textContent = label), 1500);
+      } catch (_) {
+        $(srcId).select();
+        document.execCommand('copy');
+      }
+    });
+  }
+  wireCopy('copySunoStyle', 'sunoStyleText', '📋 Style 복사');
+  wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 Lyrics 복사');
 
   // ── 음악 소스 토글 (내 음악 올리기 ↔ 코드 생성) ──────────
   document.querySelectorAll('#musicToggle .seg-btn').forEach((btn) => {

@@ -64,13 +64,17 @@
           </div>
           <small class="hint" id="planHint">영상 키워드·제목·부제·해시태그·설명 + <b>Suno 음악 프롬프트</b>까지 자동 작성.</small>
           <div id="sunoBox" class="suno-box hidden">
-            <span class="label">🎵 Suno에 붙여넣을 음악 프롬프트</span>
-            <textarea id="sunoPromptText" readonly rows="3"></textarea>
+            <span class="label">🎨 Suno — Style 칸에 붙여넣기</span>
+            <textarea id="sunoStyleText" readonly rows="3"></textarea>
+            <button id="copySunoStyle" type="button" class="btn-utility">📋 Style 복사</button>
+
+            <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
+            <textarea id="sunoLyricsText" readonly rows="3"></textarea>
             <div class="seed-row">
-              <button id="copySuno" type="button" class="btn-utility">📋 프롬프트 복사</button>
+              <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
               <a href="https://suno.com" target="_blank" rel="noopener" class="btn-utility" style="text-decoration:none; text-align:center;">Suno 열기 ↗</a>
             </div>
-            <small class="hint">Suno에서 곡을 만들어 mp3를 받은 뒤, 아래 ① 음악에 올리세요.</small>
+            <small class="hint">연주곡(배경음악)이면 Lyrics는 [Instrumental]만 들어갑니다. Suno에서 곡을 만들어 mp3를 받은 뒤, 아래 ① 음악에 올리세요.</small>
           </div>
         </div>
 
