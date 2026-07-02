@@ -275,8 +275,13 @@
   wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 Lyrics 복사');
 
   // Suno 열기 — PC는 웹, 안드로이드는 Suno 앱(없으면 웹 폴백)
+  // 단, 앱 내부 브라우저(WebView, UA에 'wv')에서는 intent://를 처리 못 해 에러가 나므로
+  // 일반 https로 열기 → 새 APK가 외부 링크를 크롬으로 넘겨 앱 링크가 동작한다.
   $('openSuno').addEventListener('click', () => {
-    if (/Android/i.test(navigator.userAgent)) {
+    const ua = navigator.userAgent;
+    const isAndroid = /Android/i.test(ua);
+    const isWebView = /\bwv\b/.test(ua);
+    if (isAndroid && !isWebView) {
       location.href = 'intent://suno.com/#Intent;scheme=https;package=com.suno.android;' +
         'S.browser_fallback_url=https%3A%2F%2Fsuno.com;end';
     } else {
