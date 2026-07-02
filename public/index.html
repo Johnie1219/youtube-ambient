@@ -287,13 +287,20 @@
         <textarea id="sunoStyleText" readonly rows="3"></textarea>
         <button id="copySunoStyle" type="button" class="btn-utility">📋 Style 복사</button>
 
-        <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
-        <textarea id="sunoLyricsText" readonly rows="3"></textarea>
-        <div class="seed-row">
+        <!-- 보컬 없는 곡: Instrumental 토글 안내 (가사가 있을 때만 가사 UI 표시) -->
+        <div id="instrumentalNote" class="hint hidden" style="margin-top:12px; padding:12px; background:#fff7e6; border-radius:12px;">
+          🎤 <b>보컬 없는 곡이에요.</b> Suno에서 <b>Lyrics는 비워두고</b>, <b>"Instrumental" 스위치를 켜고</b> 만드세요.
+          (글자로 [Instrumental]을 넣는 것보다 토글이 확실하게 목소리를 없애줍니다)
+        </div>
+        <div id="sunoLyricsWrap">
+          <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
+          <textarea id="sunoLyricsText" readonly rows="3"></textarea>
           <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
+        </div>
+        <div class="seed-row" style="margin-top:10px;">
           <button id="openSuno" type="button" class="btn-utility">Suno 열기 ↗</button>
         </div>
-        <small class="hint">Suno에서 곡을 만들고 Share 링크를 ① 음악에 붙여넣어 가져오세요. 연주곡이면 Lyrics는 [Instrumental]만.</small>
+        <small class="hint">Suno에서 곡을 만들고 Share 링크를 ① 음악에 붙여넣어 가져오세요.</small>
         <div class="actions">
           <button id="planApply" type="button" class="btn btn-primary">화면에 적용하고 닫기</button>
         </div>

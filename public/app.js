@@ -246,7 +246,12 @@
         '📺 유튜브 제목: ' + esc(j.title || '-') +
         (j.provider !== 'claude' ? '<br />⚠️ AI 키가 없어 기본 방식으로 만들었어요.' : '');
       $('sunoStyleText').value = j.sunoStyle || '';
-      $('sunoLyricsText').value = j.sunoLyrics || '[Instrumental]';
+      // 가사가 있으면 가사 UI, 없으면(연주곡) Instrumental 토글 안내
+      const lyrics = (j.sunoLyrics || '').trim();
+      const isInstrumental = !lyrics || /^\[?instrumental\]?$/i.test(lyrics);
+      $('sunoLyricsText').value = isInstrumental ? '' : lyrics;
+      $('sunoLyricsWrap').classList.toggle('hidden', isInstrumental);
+      $('instrumentalNote').classList.toggle('hidden', !isInstrumental);
       planShow('planResult');
     } catch (e) {
       alert('AI 생성 실패: ' + (e.message || e));

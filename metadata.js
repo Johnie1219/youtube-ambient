@@ -220,8 +220,8 @@ function buildPlanPrompt(concept, durationSec, answers) {
     ` "title": "유튜브 제목. 100자 이내, 이모지 1개+한글, 용도(수면·집중·드라이브 등) 포함, 클릭률 높게",\n` +
     ` "tags": ["해시태그 12~15개, 한/영 혼합"],\n` +
     ` "description": "유튜브 설명 5~8줄. 분위기 묘사 + 용도 + 해시태그 줄 + 구독 유도",\n` +
-    ` "sunoStyle": "Suno의 Style 칸에 넣을 영어. 장르·무드·악기·템포(BPM)·instrumental 여부를 구체적으로, 200자 이내",\n` +
-    ` "sunoLyrics": "Suno의 Lyrics 칸에 넣을 내용. 배경음악/연주곡 컨셉이면 정확히 [Instrumental] 만. 보컬이 어울리는 컨셉이면 [Verse]/[Chorus] 구조 태그를 포함한 짧은 가사(컨셉 언어에 맞게 한글 또는 영어)"\n` +
+    ` "sunoStyle": "Suno의 Style 칸에 넣을 영어. 장르·무드·악기·자연음·템포(BPM)를 구체적으로, 200자 이내. 보컬 없는 곡이면 끝에 반드시 'instrumental, no vocals, no humming' 포함",\n` +
+    ` "sunoLyrics": "Suno의 Lyrics 칸 내용. 보컬 없는 곡(연주곡·배경음악)이면 반드시 빈 문자열 \\"\\" (사용자가 Suno의 Instrumental 토글을 켜게 안내됨). 보컬이 어울리는 컨셉일 때만 [Verse]/[Chorus] 구조 태그를 포함한 짧은 가사"\n` +
     `}`
   );
 }
@@ -238,7 +238,7 @@ function extractPlan(text) {
     tags: Array.isArray(o.tags) ? o.tags.map(String).slice(0, 20) : [],
     description: String(o.description || ''),
     sunoStyle: String(o.sunoStyle || o.sunoPrompt || '').slice(0, 400),
-    sunoLyrics: String(o.sunoLyrics || '[Instrumental]'),
+    sunoLyrics: String(o.sunoLyrics || ''), // 빈 값 = 연주곡(Instrumental 토글 안내)
   };
 }
 
@@ -261,8 +261,8 @@ async function generatePlan(opts) {
     keyword: concept, overlayTitle: '', subtitle: '',
     title: `${concept} | ${t.title}`.slice(0, 100),
     tags: t.tags, description: t.description,
-    sunoStyle: `instrumental music for "${concept}", no vocals, high quality`,
-    sunoLyrics: '[Instrumental]',
+    sunoStyle: `instrumental music for "${concept}", no vocals, no humming, high quality`,
+    sunoLyrics: '',
     provider: 'template',
   };
 }
