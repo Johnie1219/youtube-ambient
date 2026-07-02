@@ -14,6 +14,8 @@
   let sourceMode = 'keyword'; // 'keyword'(실사 영상) | 'upload'(내 파일)
   let musicMode = 'upload';   // 'upload'(내 음악 파일) | 'generate'(코드 생성)
   let uploadedAudioFile = null;
+  let sunoTracks = [];        // 가져온 Suno 곡 [{id, name, duration}]
+  let selectedSunoId = null;  // 선택된 Suno 곡 id (파일 업로드보다 우선)
   let stockSeed = Math.floor(Math.random() * 1e9); // 실사 영상 선택 시드(미리보기 때마다 새로)
 
   const THEME_LABELS = {
@@ -186,6 +188,85 @@
   wireCopy('copySunoStyle', 'sunoStyleText', '📋 Style 복사');
   wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 Lyrics 복사');
 
+  // Suno 열기 — PC는 웹, 안드로이드는 Suno 앱(없으면 웹 폴백)
+  $('openSuno').addEventListener('click', () => {
+    if (/Android/i.test(navigator.userAgent)) {
+      location.href = 'intent://suno.com/#Intent;scheme=https;package=com.suno.android;' +
+        'S.browser_fallback_url=https%3A%2F%2Fsuno.com;end';
+    } else {
+      window.open('https://suno.com', '_blank', 'noopener');
+    }
+  });
+
+  // ── 🎵 Suno 곡 링크로 가져오기 → 목록에서 듣고 선택 ────────
+  function renderSunoTracks() {
+    const box = $('sunoTracks');
+    box.innerHTML = '';
+    sunoTracks.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'suno-track' + (selectedSunoId === t.id ? ' selected' : '');
+      const label = document.createElement('label');
+      label.className = 'suno-track-pick';
+      const radio = document.createElement('input');
+      radio.type = 'radio'; radio.name = 'sunoPick';
+      radio.checked = selectedSunoId === t.id;
+      radio.addEventListener('change', () => {
+        selectedSunoId = t.id;
+        audioDuration = t.duration || 0;
+        try { $('audioFile').value = ''; } catch (_) {}
+        uploadedAudioFile = null;
+        $('audioInfo').className = 'status ok';
+        $('audioInfo').textContent = '✓ ' + t.name + (t.duration ? ' · ' + fmtTime(t.duration) : '') + ' 선택됨';
+        $('render').disabled = false;
+        renderSunoTracks();
+      });
+      label.appendChild(radio);
+      label.appendChild(document.createTextNode(' ' + t.name + (t.duration ? ' · ' + fmtTime(t.duration) : '')));
+      const player = document.createElement('audio');
+      player.controls = true; player.preload = 'none';
+      player.src = '/api/suno/file/' + t.id;
+      row.appendChild(label);
+      row.appendChild(player);
+      box.appendChild(row);
+    });
+  }
+
+  $('sunoFetchBtn').addEventListener('click', async () => {
+    const link = $('sunoLink').value.trim();
+    if (!link) { alert('Suno 곡 링크를 붙여넣어 주세요. (곡에서 Share → Copy Link)'); return; }
+    const btn = $('sunoFetchBtn'), old = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const resp = await fetch('/api/suno/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: link }),
+      });
+      const j = await resp.json();
+      if (!resp.ok) throw new Error(j.error || '가져오기 실패');
+      const track = { id: j.id, name: 'Suno 곡 ' + (sunoTracks.length + 1), duration: 0 };
+      sunoTracks.push(track);
+      // 길이 측정 후 표시 갱신
+      const probe = new Audio();
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        if (isFinite(probe.duration) && probe.duration > 1) track.duration = probe.duration;
+        if (selectedSunoId === track.id) audioDuration = track.duration || 0;
+        renderSunoTracks();
+      };
+      probe.src = '/api/suno/file/' + track.id;
+      // 방금 가져온 곡을 자동 선택
+      selectedSunoId = track.id;
+      uploadedAudioFile = null;
+      try { $('audioFile').value = ''; } catch (_) {}
+      $('render').disabled = false;
+      $('sunoLink').value = '';
+      renderSunoTracks();
+    } catch (e) {
+      alert('Suno 곡 가져오기 실패: ' + (e.message || e));
+    } finally { btn.disabled = false; btn.textContent = old; }
+  });
+
   // ── 음악 소스 토글 (내 음악 올리기 ↔ 코드 생성) ──────────
   document.querySelectorAll('#musicToggle .seg-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -200,8 +281,9 @@
   $('audioFile').addEventListener('change', () => {
     const f = $('audioFile').files[0];
     uploadedAudioFile = f || null;
+    if (f) { selectedSunoId = null; renderSunoTracks(); } // 파일을 고르면 Suno 선택 해제
     const info = $('audioInfo');
-    $('render').disabled = !f;
+    $('render').disabled = !f && !selectedSunoId;
     if (!f) { info.textContent = ''; return; }
     info.className = 'status'; info.textContent = '길이 확인 중…';
     const url = URL.createObjectURL(f);
@@ -272,11 +354,16 @@
   // ── MP4 만들기 ────────────────────────────────────────────
   async function renderMp4() {
     const usingUpload = musicMode === 'upload';
-    const audioData = usingUpload ? uploadedAudioFile : wavBlob;
-    if (!audioData) return false;
     const btn = $('render'), status = $('renderStatus');
     const fd = new FormData();
-    fd.append('audio', audioData, usingUpload ? (uploadedAudioFile.name || 'music.mp3') : 'ambient.wav');
+    if (usingUpload && selectedSunoId) {
+      // Suno로 가져온 곡은 서버에 이미 있으므로 id만 전달(재업로드 없음 → 빠름)
+      fd.append('serverAudioId', selectedSunoId);
+    } else {
+      const audioData = usingUpload ? uploadedAudioFile : wavBlob;
+      if (!audioData) return false;
+      fd.append('audio', audioData, usingUpload ? (uploadedAudioFile.name || 'music.mp3') : 'ambient.wav');
+    }
     const media = sourceMode === 'upload' ? $('media').files[0] : null;
     if (media) fd.append('media', media);
     fd.append('theme', $('theme').value);
@@ -355,9 +442,9 @@
       // (채널 이름이 정해지면 그때 직접 입력해서 넣을 예정)
       // 3) 음악: 업로드 모드면 올린 파일 사용, 아니면 코드로 생성
       if (musicMode === 'upload') {
-        if (!uploadedAudioFile) {
+        if (!uploadedAudioFile && !selectedSunoId) {
           status.className = 'status err';
-          status.textContent = '먼저 음악 파일을 올려주세요 (① 음악 → 내 음악 올리기).';
+          status.textContent = '먼저 음악을 준비해주세요 (Suno 링크 가져오기 또는 파일 올리기).';
           return;
         }
       } else {

@@ -307,6 +307,16 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 .suno-box textarea { width: 100%; margin: 8px 0; font-size: 13px; }
 .suno-box.hidden { display: none; }
 
+/* ── 🎵 Suno 가져온 곡 목록 ──────────────────────────────── */
+.suno-tracks { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.suno-track {
+  border: 1px solid var(--hairline); border-radius: var(--r-lg);
+  padding: 10px 12px; background: #fff;
+}
+.suno-track.selected { border-color: var(--blue, #0066cc); background: #f0f7ff; }
+.suno-track-pick { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; cursor: pointer; }
+.suno-track audio { width: 100%; height: 36px; }
+
 /* ── 실사 영상 미리보기 ──────────────────────────────────── */
 .stock-preview { margin-top: 10px; }
 .stock-preview.hidden { display: none; }

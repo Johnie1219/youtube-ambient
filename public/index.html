@@ -72,7 +72,7 @@
             <textarea id="sunoLyricsText" readonly rows="3"></textarea>
             <div class="seed-row">
               <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
-              <a href="https://suno.com" target="_blank" rel="noopener" class="btn-utility" style="text-decoration:none; text-align:center;">Suno 열기 ↗</a>
+              <button id="openSuno" type="button" class="btn-utility">Suno 열기 ↗</button>
             </div>
             <small class="hint">연주곡(배경음악)이면 Lyrics는 [Instrumental]만 들어갑니다. Suno에서 곡을 만들어 mp3를 받은 뒤, 아래 ① 음악에 올리세요.</small>
           </div>
@@ -86,8 +86,16 @@
             <button type="button" class="seg-btn" data-music="generate">🤖 코드로 생성</button>
           </div>
           <div id="musicUploadRow" class="src-row">
-            <input id="audioFile" type="file" accept="audio/*" />
-            <small class="hint">Suno 등에서 만든 곡(mp3·wav)을 올리면 그 음악으로 영상을 만듭니다.</small>
+            <div class="seed-row">
+              <input id="sunoLink" type="text" placeholder="Suno 곡 링크 붙여넣기 (곡에서 Share → Copy Link)" />
+              <button id="sunoFetchBtn" type="button" class="btn-utility">가져오기</button>
+            </div>
+            <small class="hint">링크만 붙여넣으면 곡을 자동으로 가져와요. 여러 곡을 가져와 듣고 고를 수 있습니다(공개 곡만).</small>
+            <div id="sunoTracks" class="suno-tracks"></div>
+            <div style="margin-top:10px;">
+              <input id="audioFile" type="file" accept="audio/*" />
+              <small class="hint">또는 — mp3·wav 파일을 직접 올려도 됩니다.</small>
+            </div>
             <span id="audioInfo" class="status"></span>
           </div>
           <div id="musicGenRow" class="src-row hidden">

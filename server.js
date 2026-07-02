@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-1';
+const APP_VERSION = '2026.07.02-2';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -253,9 +253,15 @@ app.post(
     const audio = req.files && req.files.audio && req.files.audio[0];
     const media = req.files && req.files.media && req.files.media[0];
 
-    if (!audio) {
+    // 음악 소스: ① 업로드 파일 ② 서버에 가져온 Suno 곡(serverAudioId)
+    let audioPath = audio && audio.path;
+    const serverAudioId = String(req.body.serverAudioId || '');
+    if (!audioPath && isValidId(serverAudioId) && fs.existsSync(sunoFilePath(serverAudioId))) {
+      audioPath = sunoFilePath(serverAudioId);
+    }
+    if (!audioPath) {
       if (media) safeUnlink(media.path);
-      return res.status(400).json({ error: '음악(WAV) 파일이 없습니다.' });
+      return res.status(400).json({ error: '음악이 없습니다. 파일을 올리거나 Suno 링크로 곡을 가져오세요.' });
     }
 
     const duration = Math.max(1, parseFloat(req.body.duration) || 60);
@@ -304,7 +310,8 @@ app.post(
       file: outFile,
       error: null,
       listeners: [],
-      cleanup: [audio.path, media && media.path].filter(Boolean),
+      // Suno로 가져온 곡(serverAudioId)은 다른 렌더에 재사용할 수 있어 지우지 않는다.
+      cleanup: [audio && audio.path, media && media.path].filter(Boolean),
       meta,
     };
     jobs.set(jobId, job);
@@ -431,7 +438,7 @@ app.post(
       ffmpeg()
         .input(basePath)
         .inputOptions(['-stream_loop', '-1'])
-        .input(audio.path)
+        .input(audioPath)
         .outputOptions([
           '-map', '0:v:0',
           '-map', '1:a:0',
@@ -573,6 +580,36 @@ app.post('/api/videos/:id/youtube', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err && err.message ? err.message : String(err) });
   }
+});
+
+// ── 🎵 Suno 곡 가져오기: 공유 링크 → 서버가 mp3 다운로드 → 미리듣기/선택 ──
+// 공개 곡은 cdn1.suno.ai/<uuid>.mp3 로 받을 수 있다(공식 API 없음 → 링크 방식).
+const SUNO_UUID = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+function sunoFilePath(id) { return path.join(UPLOADS, 'suno_' + id + '.mp3'); }
+
+app.post('/api/suno/fetch', async (req, res) => {
+  const url = String((req.body && req.body.url) || '').trim();
+  const m = url.match(SUNO_UUID);
+  if (!m) {
+    return res.status(400).json({ error: '링크에서 곡 ID를 찾지 못했어요. Suno에서 곡의 "Share → Copy Link"로 복사한 주소를 붙여넣으세요.' });
+  }
+  const sid = m[1].toLowerCase();
+  const fileId = crypto.randomBytes(8).toString('hex');
+  try {
+    await stock.download('https://cdn1.suno.ai/' + sid + '.mp3', sunoFilePath(fileId));
+    res.json({ id: fileId });
+  } catch (e) {
+    safeUnlink(sunoFilePath(fileId));
+    res.status(502).json({ error: '곡을 가져오지 못했어요. 곡이 비공개이거나 링크가 잘못됐을 수 있어요. (' + (e.message || e) + ')' });
+  }
+});
+
+// 가져온 곡 미리듣기 스트리밍
+app.get('/api/suno/file/:id', (req, res) => {
+  const id = req.params.id;
+  if (!isValidId(id) || !fs.existsSync(sunoFilePath(id))) return res.status(404).end();
+  res.type('audio/mpeg');
+  fs.createReadStream(sunoFilePath(id)).pipe(res);
 });
 
 // 🪄 AI 기획: 컨셉 한 줄 → 키워드·제목·부제·해시태그·설명·Suno 프롬프트

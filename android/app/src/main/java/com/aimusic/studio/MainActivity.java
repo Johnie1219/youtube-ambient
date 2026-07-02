@@ -47,6 +47,22 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 try {
                     Uri url = request.getUrl();
+                    // intent:// 스킴(예: Suno 앱 열기) → 해당 앱 실행, 없으면 fallback URL로
+                    if ("intent".equals(url.getScheme())) {
+                        try {
+                            Intent it = Intent.parseUri(url.toString(), Intent.URI_INTENT_SCHEME);
+                            startActivity(it);
+                        } catch (Exception notFound) {
+                            String fb = null;
+                            try {
+                                Intent it = Intent.parseUri(url.toString(), Intent.URI_INTENT_SCHEME);
+                                fb = it.getStringExtra("browser_fallback_url");
+                            } catch (Exception ignored) { }
+                            startActivity(new Intent(Intent.ACTION_VIEW,
+                                    Uri.parse(fb != null ? fb : "https://suno.com")));
+                        }
+                        return true;
+                    }
                     String appHost = Uri.parse(getString(R.string.app_url)).getHost();
                     if (url.getHost() != null && url.getHost().equalsIgnoreCase(appHost)) {
                         return false; // 우리 앱 도메인은 웹뷰 안에서 그대로
