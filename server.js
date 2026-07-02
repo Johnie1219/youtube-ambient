@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-4';
+const APP_VERSION = '2026.07.02-5';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -372,7 +372,23 @@ app.post(
         } catch (_) { /* 실패 시 오버레이 없이 진행 */ }
       }
 
-      // 배경 루프는 짧아서(5~10초) 느린 preset을 써도 빠름 → 압축 효율↑ 파일 용량 대폭↓.
+      // ── 이음새 없는 루프(실사·사진): 끝 1초를 시작 1초와 크로스페이드 ──
+      // 반복 지점(끝→처음)이 부드럽게 섞여 "탁" 끊기는 점프가 사라진다.
+      // 그라데이션은 사인 주기가 루프 길이와 맞아 원래 이음새가 없으므로 제외.
+      const XF = 1; // 크로스페이드 길이(초)
+      const seamless = (srcKind === 'video' || srcKind === 'image') && loopSec >= 4;
+      const outSec = seamless ? loopSec - XF : loopSec;
+      const filters = seamless
+        ? [
+            `[0:v]${chain}[vpre]`,
+            `[vpre]split[vm][vx]`,
+            `[vx]trim=end=${XF},setpts=PTS-STARTPTS[vhead]`,
+            `[vm]trim=start=${XF},setpts=PTS-STARTPTS[vbody]`,
+            `[vbody][vhead]xfade=transition=fade:duration=${XF}:offset=${loopSec - 2 * XF}[vout]`,
+          ]
+        : [`[0:v]${chain}[vout]`];
+
+      // 배경 루프는 짧아서(5~18초) 느린 preset을 써도 빠름 → 압축 효율↑ 파일 용량 대폭↓.
       // crf + maxrate(유튜브 권장 상한)로 화질 유지하며 용량 최소화. 사진 배경은 stillimage 튠.
       const vOpts = [
         '-map', '[vout]',
@@ -386,15 +402,15 @@ app.post(
         '-profile:v', 'high',
         '-g', String(fps), // 매초 키프레임 → 루프 경계가 항상 키프레임(복사 루프 시 깔끔)
         '-r', String(fps),
-        '-t', String(loopSec),
+        '-t', String(outSec),
       ];
       if (srcKind === 'image') vOpts.push('-tune', 'stillimage');
       c1
-        .complexFilter([`[0:v]${chain}[vout]`])
+        .complexFilter(filters)
         .outputOptions(vOpts)
         .on('progress', (p) => {
           const sec = timemarkToSeconds(p.timemark);
-          job.percent = Math.min(35, (sec / loopSec) * 35);
+          job.percent = Math.min(35, (sec / outSec) * 35);
           notify(job);
         })
         .on('end', runPass2)
@@ -425,7 +441,9 @@ app.post(
           return stock.download(found.url, stockPath).then(() => {
             job.note = '인코딩 중…';
             notify(job);
-            startPass1('video', stockPath, 10);
+            // 클립이 길면 최대 18초까지 사용 → 반복이 덜 느껴짐(크로스페이드로 이음새 처리)
+            const clipSec = Math.floor(found.duration || 10);
+            startPass1('video', stockPath, Math.max(6, Math.min(18, clipSec)));
           });
         })
         .catch(() => { job.note = null; startPass1('gradient', null, 5); });
