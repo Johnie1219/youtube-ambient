@@ -334,6 +334,11 @@ input[type="file"] { padding: 9px; font-size: 14px; }
   font-size: 14px; cursor: pointer; transition: all 0.12s;
 }
 .chip.active { background: var(--blue, #0066cc); color: #fff; border-color: transparent; }
+.plan-free {
+  width: 100%; margin-top: 8px; padding: 10px 12px;
+  border: 1px dashed var(--hairline); border-radius: var(--r-lg);
+  font-size: 14px;
+}
 
 /* ── 🎵 Suno 가져온 곡 목록 ──────────────────────────────── */
 .suno-tracks { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }

@@ -183,16 +183,27 @@
       wrap.appendChild(t);
       const opts = document.createElement('div');
       opts.className = 'chips';
+      // 직접 입력칸 — 선택지에 원하는 답이 없으면 그냥 타이핑
+      const free = document.createElement('input');
+      free.type = 'text'; free.className = 'plan-free';
+      free.placeholder = '✏️ 원하는 답이 없으면 직접 입력…';
+      free.addEventListener('input', () => {
+        const v = free.value.trim();
+        planAnswers[qi] = v || null;
+        if (v) opts.querySelectorAll('.chip').forEach((x) => x.classList.remove('active'));
+      });
       (q.options || []).forEach((op) => {
         const c = document.createElement('button');
         c.type = 'button'; c.className = 'chip'; c.textContent = op;
         c.addEventListener('click', () => {
           planAnswers[qi] = op;
+          free.value = '';
           opts.querySelectorAll('.chip').forEach((x) => x.classList.toggle('active', x === c));
         });
         opts.appendChild(c);
       });
       wrap.appendChild(opts);
+      wrap.appendChild(free);
       box.appendChild(wrap);
     });
     const act = document.createElement('div');
