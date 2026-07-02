@@ -161,13 +161,56 @@ async function generate(opts) {
   return generateTemplate(presetKey, durationSec, opts.seed);
 }
 
-// ── 🪄 AI 기획: 컨셉 한 줄 → 영상 키워드·제목·해시태그·설명·Suno 프롬프트 ──
+// ── 🪄 AI 생성: 컨셉 한 줄 → 영상 키워드·제목·해시태그·설명·Suno 프롬프트 ──
 // ANTHROPIC_API_KEY가 있으면 Claude가 전부 작성. 없으면 컨셉 그대로의 소박한 폴백.
-function buildPlanPrompt(concept, durationSec) {
+
+// 컨셉을 더 정확히 반영하기 위한 추가 질문(2~3개, 선택지형) 생성
+function buildQuestionsPrompt(concept) {
+  return (
+    `너는 유튜브 음악 영상 기획자야. 사용자가 이런 컨셉을 입력했어: "${concept}"\n` +
+    `음악과 영상을 취향에 딱 맞게 만들기 위해 꼭 필요한 추가 질문을 2~3개만 해줘.\n` +
+    `- 질문은 이 컨셉에 맞춰 구체적으로(예: 음악 장르/분위기, 템포, 보컬 유무, 영상 톤).\n` +
+    `- 각 질문마다 짧은 선택지 3~4개.\n` +
+    `반드시 아래 JSON만 출력(설명 금지):\n` +
+    `{"questions":[{"q":"질문(한글)","options":["선택지1","선택지2","선택지3"]}]}`
+  );
+}
+
+async function generateQuestions(opts) {
+  const concept = String(opts.concept || '').trim();
+  if (!concept) throw new Error('컨셉을 입력하세요.');
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const text = await callClaude(buildQuestionsPrompt(concept), 800);
+      const a = text.indexOf('{'); const b = text.lastIndexOf('}');
+      const o = JSON.parse(text.slice(a, b + 1));
+      const qs = (Array.isArray(o.questions) ? o.questions : [])
+        .slice(0, 3)
+        .map((q) => ({ q: String(q.q || '').slice(0, 120), options: (Array.isArray(q.options) ? q.options : []).map(String).slice(0, 4) }))
+        .filter((q) => q.q && q.options.length >= 2);
+      if (qs.length) return { questions: qs, provider: 'claude' };
+    } catch (e) { /* 폴백으로 */ }
+  }
+  return {
+    provider: 'template',
+    questions: [
+      { q: '음악 장르는 어떤 느낌이 좋나요?', options: ['로파이/칠', '어쿠스틱 기타', '잔잔한 피아노', '앰비언트'] },
+      { q: '템포(빠르기)는요?', options: ['아주 느리게', '느긋하게', '보통', '경쾌하게'] },
+      { q: '보컬이 들어갈까요?', options: ['연주곡(보컬 없음)', '허밍 정도', '가사 있는 보컬'] },
+    ],
+  };
+}
+
+function buildPlanPrompt(concept, durationSec, answers) {
+  const ansText = (Array.isArray(answers) && answers.length)
+    ? `\n사용자 추가 답변(반드시 음악 스타일과 영상 키워드에 반영):\n` +
+      answers.map((a) => `- ${a.q} → ${a.a}`).join('\n')
+    : '';
   return (
     `너는 유튜브 음악 채널의 크리에이티브 디렉터야. 아래 컨셉으로 음악 플레이리스트 영상 한 편을 기획해줘.\n` +
-    `컨셉: "${concept}"\n` +
+    `컨셉: "${concept}"${ansText}\n` +
     `길이: 약 ${Math.round((durationSec || 180) / 60)}분. 음악은 Suno로 생성, 배경은 Pixabay 스톡 실사 영상.\n` +
+    `중요: 컨셉의 구체적 요소(장소·사물·소리·감성 — 예: 모닥불 타는 소리, 고양이, 캠핑장)를 sunoStyle과 keyword에 반드시 녹여라. 뻔한 장르 이름만 쓰지 말 것.\n` +
     `반드시 아래 JSON만 출력(설명·마크다운 금지):\n` +
     `{\n` +
     ` "keyword": "Pixabay 영상 검색용 영어 2~4단어. 시네마틱하고 구체적인 장면 묘사(예: rainy jazz bar window)",\n` +
@@ -202,9 +245,12 @@ async function generatePlan(opts) {
   const concept = String(opts.concept || '').trim();
   if (!concept) throw new Error('컨셉을 입력하세요.');
   const durationSec = opts.durationSec || 180;
+  const answers = Array.isArray(opts.answers)
+    ? opts.answers.map((a) => ({ q: String(a.q || '').slice(0, 120), a: String(a.a || '').slice(0, 120) })).filter((a) => a.q && a.a).slice(0, 5)
+    : [];
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      const text = await callClaude(buildPlanPrompt(concept, durationSec), 1500);
+      const text = await callClaude(buildPlanPrompt(concept, durationSec, answers), 1500);
       return Object.assign(extractPlan(text), { provider: 'claude' });
     } catch (e) { /* 아래 폴백으로 */ }
   }
@@ -220,4 +266,4 @@ async function generatePlan(opts) {
   };
 }
 
-module.exports = { generate, generatePlan, SEEDS };
+module.exports = { generate, generatePlan, generateQuestions, SEEDS };

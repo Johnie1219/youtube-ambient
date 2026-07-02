@@ -138,40 +138,115 @@
     } finally { btn.disabled = false; btn.textContent = old; }
   });
 
-  // ── 🪄 AI 기획: 컨셉 한 줄 → 키워드·제목·메타·Suno 프롬프트 ──
+  // ── 🪄 AI 생성 (팝업): 컨셉 → AI 추가 질문 → 결과 → 적용 ──
+  let planQuestionsData = [], planAnswers = [], lastPlan = null;
+
+  function showPlanModal() { $('planModal').classList.remove('hidden'); }
+  function hidePlanModal() { $('planModal').classList.add('hidden'); }
+  $('planModalClose').addEventListener('click', hidePlanModal);
+  function planShow(section) {
+    ['planLoading', 'planQuestions', 'planResult'].forEach((id) =>
+      $(id).classList.toggle('hidden', id !== section));
+  }
+
   $('planBtn').addEventListener('click', async () => {
     const concept = $('concept').value.trim();
     if (!concept) { alert('컨셉을 한 줄 적어주세요.'); return; }
-    const btn = $('planBtn'), old = btn.textContent;
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    showPlanModal();
+    planShow('planLoading');
+    $('planLoadingText').textContent = '컨셉을 읽고 질문을 만드는 중…';
+    try {
+      const r = await fetch('/api/plan/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concept }),
+      });
+      const j = await r.json();
+      if (!r.ok || !(j.questions && j.questions.length)) throw new Error(j.error || '질문 없음');
+      renderPlanQuestions(j.questions);
+    } catch (_) {
+      runPlanGenerate([]); // 질문 실패 시 바로 생성
+    }
+  });
+
+  function renderPlanQuestions(qs) {
+    planQuestionsData = qs;
+    planAnswers = new Array(qs.length).fill(null);
+    const box = $('planQuestions');
+    box.innerHTML = '';
+    qs.forEach((q, qi) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'plan-q';
+      const t = document.createElement('div');
+      t.className = 'plan-q-title';
+      t.textContent = (qi + 1) + '. ' + q.q;
+      wrap.appendChild(t);
+      const opts = document.createElement('div');
+      opts.className = 'chips';
+      (q.options || []).forEach((op) => {
+        const c = document.createElement('button');
+        c.type = 'button'; c.className = 'chip'; c.textContent = op;
+        c.addEventListener('click', () => {
+          planAnswers[qi] = op;
+          opts.querySelectorAll('.chip').forEach((x) => x.classList.toggle('active', x === c));
+        });
+        opts.appendChild(c);
+      });
+      wrap.appendChild(opts);
+      box.appendChild(wrap);
+    });
+    const act = document.createElement('div');
+    act.className = 'actions';
+    const go = document.createElement('button');
+    go.type = 'button'; go.className = 'btn btn-primary'; go.textContent = '🪄 이 내용으로 생성';
+    go.addEventListener('click', () =>
+      runPlanGenerate(planQuestionsData
+        .map((q, i) => (planAnswers[i] ? { q: q.q, a: planAnswers[i] } : null))
+        .filter(Boolean)));
+    const skip = document.createElement('button');
+    skip.type = 'button'; skip.className = 'btn btn-secondary'; skip.textContent = '건너뛰고 생성';
+    skip.addEventListener('click', () => runPlanGenerate([]));
+    act.appendChild(go); act.appendChild(skip);
+    box.appendChild(act);
+    planShow('planQuestions');
+  }
+
+  async function runPlanGenerate(answers) {
+    planShow('planLoading');
+    $('planLoadingText').textContent = '음악·영상 기획을 만드는 중…';
     try {
       const resp = await fetch('/api/plan/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concept, durationSec: audioDuration || 180 }),
+        body: JSON.stringify({ concept: $('concept').value.trim(), durationSec: audioDuration || 180, answers }),
       });
       const j = await resp.json();
-      if (!resp.ok) throw new Error(j.error || '기획 실패');
-      // 영상 키워드·제목·부제 채우기 (사용자가 이미 쓴 값은 유지)
+      if (!resp.ok) throw new Error(j.error || '생성 실패');
+      lastPlan = j;
+      $('planSummary').innerHTML =
+        '🎬 영상 키워드: <b>' + esc(j.keyword || '-') + '</b><br />' +
+        '📺 유튜브 제목: ' + esc(j.title || '-') +
+        (j.provider !== 'claude' ? '<br />⚠️ AI 키가 없어 기본 방식으로 만들었어요.' : '');
+      $('sunoStyleText').value = j.sunoStyle || '';
+      $('sunoLyricsText').value = j.sunoLyrics || '[Instrumental]';
+      planShow('planResult');
+    } catch (e) {
+      alert('AI 생성 실패: ' + (e.message || e));
+      hidePlanModal();
+    }
+  }
+
+  $('planApply').addEventListener('click', () => {
+    const j = lastPlan;
+    if (j) {
       if (j.keyword) { $('keyword').value = j.keyword; $('keyword').dataset.touched = '1'; }
       if (j.overlayTitle) $('overlayText').value = j.overlayTitle;
       if (j.subtitle) $('subtitle').value = j.subtitle;
-      // 유튜브 메타데이터 채우기
       if (j.title) { $('vidTitle').value = j.title; $('vidTitle').dataset.touched = '1'; }
       if (j.tags && j.tags.length) { $('vidTags').value = j.tags.join(', '); $('vidTags').dataset.touched = '1'; }
       if (j.description) { $('vidDesc').value = j.description; $('vidDesc').dataset.touched = '1'; }
-      // Suno 프롬프트 표시 (Style / Lyrics 두 칸)
-      if (j.sunoStyle || j.sunoLyrics) {
-        $('sunoStyleText').value = j.sunoStyle || '';
-        $('sunoLyricsText').value = j.sunoLyrics || '[Instrumental]';
-        $('sunoBox').classList.remove('hidden');
-      }
-      $('planHint').textContent = (j.provider === 'claude')
-        ? '✅ AI(Claude)가 기획을 완성했어요. 키워드 미리보기로 영상을 고르고, Suno 프롬프트로 곡을 만드세요.'
-        : '⚠️ ANTHROPIC_API_KEY가 없어 기본 방식으로 채웠어요. 서버에 키를 넣으면 훨씬 좋아집니다.';
-    } catch (e) {
-      alert('AI 기획 실패: ' + (e.message || e));
-    } finally { btn.disabled = false; btn.textContent = old; }
+    }
+    hidePlanModal();
   });
   function wireCopy(btnId, srcId, label) {
     $(btnId).addEventListener('click', async () => {

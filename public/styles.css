@@ -307,6 +307,34 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 .suno-box textarea { width: 100%; margin: 8px 0; font-size: 13px; }
 .suno-box.hidden { display: none; }
 
+/* ── 🪄 AI 생성 팝업(모달) ───────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.hidden { display: none; }
+.modal-card {
+  background: #fff; border-radius: var(--r-lg);
+  width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto;
+  padding: 20px 22px; box-shadow: var(--product-shadow);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 17px; }
+.modal-head .close { cursor: pointer; color: var(--ink-48, #666); font-size: 18px; padding: 4px 8px; }
+.modal-loading { padding: 24px 0; text-align: center; font-size: 15px; }
+.modal-card textarea { width: 100%; margin: 8px 0; font-size: 13px; }
+
+.plan-q { margin-bottom: 16px; }
+.plan-q-title { font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 14px; border-radius: 9999px;
+  border: 1px solid var(--hairline); background: #fff; color: var(--ink);
+  font-size: 14px; cursor: pointer; transition: all 0.12s;
+}
+.chip.active { background: var(--blue, #0066cc); color: #fff; border-color: transparent; }
+
 /* ── 🎵 Suno 가져온 곡 목록 ──────────────────────────────── */
 .suno-tracks { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .suno-track {

@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-2';
+const APP_VERSION = '2026.07.02-3';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -612,12 +612,23 @@ app.get('/api/suno/file/:id', (req, res) => {
   fs.createReadStream(sunoFilePath(id)).pipe(res);
 });
 
-// 🪄 AI 기획: 컨셉 한 줄 → 키워드·제목·부제·해시태그·설명·Suno 프롬프트
+// 🪄 AI 생성 1단계: 컨셉을 정확히 반영하기 위한 추가 질문(선택지형)
+app.post('/api/plan/questions', async (req, res) => {
+  try {
+    const qs = await metadata.generateQuestions({ concept: req.body.concept });
+    res.json(qs);
+  } catch (e) {
+    res.status(400).json({ error: e && e.message ? e.message : String(e) });
+  }
+});
+
+// 🪄 AI 생성 2단계: 컨셉+답변 → 키워드·제목·부제·해시태그·설명·Suno 프롬프트
 app.post('/api/plan/generate', async (req, res) => {
   try {
     const plan = await metadata.generatePlan({
       concept: req.body.concept,
       durationSec: parseFloat(req.body.durationSec) || 180,
+      answers: req.body.answers,
     });
     res.json(plan);
   } catch (e) {

@@ -55,27 +55,14 @@
       <p class="tagline">아래 세 가지만 정하면 끝. 나머지는 AI가 알아서 채웁니다.</p>
 
       <div class="grid">
-        <!-- 🪄 AI 기획: 컨셉 한 줄 → 나머지 자동 -->
+        <!-- 🪄 AI 생성: 컨셉 한 줄 → 팝업에서 질문 → 결과 적용 -->
         <div class="field full">
-          <span class="label">🪄 AI 기획 (선택) — 컨셉 한 줄이면 아래를 전부 채워줘요</span>
+          <span class="label">🪄 AI 생성 (선택) — 컨셉 한 줄이면 음악·영상을 기획해줘요</span>
           <div class="seed-row">
-            <input id="concept" type="text" placeholder="예: 비 오는 밤 재즈바에서 듣는 감성 플레이리스트" />
-            <button id="planBtn" type="button" class="btn-utility">기획</button>
+            <input id="concept" type="text" placeholder="예: 캠핑장 모닥불 앞에서 불멍 때리는 고양이들" />
+            <button id="planBtn" type="button" class="btn-utility">생성</button>
           </div>
-          <small class="hint" id="planHint">영상 키워드·제목·부제·해시태그·설명 + <b>Suno 음악 프롬프트</b>까지 자동 작성.</small>
-          <div id="sunoBox" class="suno-box hidden">
-            <span class="label">🎨 Suno — Style 칸에 붙여넣기</span>
-            <textarea id="sunoStyleText" readonly rows="3"></textarea>
-            <button id="copySunoStyle" type="button" class="btn-utility">📋 Style 복사</button>
-
-            <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
-            <textarea id="sunoLyricsText" readonly rows="3"></textarea>
-            <div class="seed-row">
-              <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
-              <button id="openSuno" type="button" class="btn-utility">Suno 열기 ↗</button>
-            </div>
-            <small class="hint">연주곡(배경음악)이면 Lyrics는 [Instrumental]만 들어갑니다. Suno에서 곡을 만들어 mp3를 받은 뒤, 아래 ① 음악에 올리세요.</small>
-          </div>
+          <small class="hint">AI가 컨셉을 읽고 몇 가지 질문을 한 뒤, 영상 키워드·제목·해시태그 + Suno 음악 프롬프트를 만들어줍니다.</small>
         </div>
 
         <!-- ① 음악 -->
@@ -284,6 +271,35 @@
     로컬·NAS에서 동작 · 음악은 브라우저에서 생성 · 합치기는 ffmpeg · 유튜브 자동 업로드 지원
     <br /><span id="buildInfo" class="build-info">버전 확인 중…</span>
   </footer>
+
+  <!-- 🪄 AI 생성 팝업 (질문 → 결과) -->
+  <div id="planModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <b>🪄 AI 생성</b>
+        <span class="close" id="planModalClose">✕</span>
+      </div>
+      <div id="planLoading" class="hidden modal-loading"><span class="spinner"></span> <span id="planLoadingText">준비 중…</span></div>
+      <div id="planQuestions" class="hidden"></div>
+      <div id="planResult" class="hidden">
+        <p class="hint" id="planSummary"></p>
+        <span class="label">🎨 Suno — Style 칸에 붙여넣기</span>
+        <textarea id="sunoStyleText" readonly rows="3"></textarea>
+        <button id="copySunoStyle" type="button" class="btn-utility">📋 Style 복사</button>
+
+        <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
+        <textarea id="sunoLyricsText" readonly rows="3"></textarea>
+        <div class="seed-row">
+          <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
+          <button id="openSuno" type="button" class="btn-utility">Suno 열기 ↗</button>
+        </div>
+        <small class="hint">Suno에서 곡을 만들고 Share 링크를 ① 음악에 붙여넣어 가져오세요. 연주곡이면 Lyrics는 [Instrumental]만.</small>
+        <div class="actions">
+          <button id="planApply" type="button" class="btn btn-primary">화면에 적용하고 닫기</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- iOS 설치 안내 -->
   <div id="iosHint" class="ios-hint">
