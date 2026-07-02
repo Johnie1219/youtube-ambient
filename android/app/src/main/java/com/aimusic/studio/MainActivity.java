@@ -3,6 +3,7 @@ package com.aimusic.studio;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -40,6 +41,23 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
 
         web.setWebViewClient(new WebViewClient() {
+            // 외부 링크(Suno·유튜브 등)는 기본 브라우저(크롬)로 연다.
+            // 구글이 WebView 안에서의 구글 로그인을 차단(403 disallowed_useragent)하기 때문.
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                try {
+                    Uri url = request.getUrl();
+                    String appHost = Uri.parse(getString(R.string.app_url)).getHost();
+                    if (url.getHost() != null && url.getHost().equalsIgnoreCase(appHost)) {
+                        return false; // 우리 앱 도메인은 웹뷰 안에서 그대로
+                    }
+                    startActivity(new Intent(Intent.ACTION_VIEW, url));
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+
             // 메인 페이지 로드 실패 시 흰 화면 대신 원인/재시도 안내를 보여준다.
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
