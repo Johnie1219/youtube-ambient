@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-9';
+const APP_VERSION = '2026.07.02-10';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -112,6 +112,39 @@ function listVideos() {
 
 // jobId -> { status, percent, file, error, listeners[], cleanup[] }
 const jobs = new Map();
+
+// ── 렌더 큐: ARM NAS에서 동시 인코딩은 서로를 느리게 하므로 한 번에 하나씩 ──
+let renderChain = Promise.resolve();
+function enqueueRender(fn) {
+  renderChain = renderChain
+    .then(() => new Promise((resolve) => fn(resolve)))
+    .catch(() => {});
+}
+
+// ── AI/검색 요청 제한(시간당, IP별) — 공개 주소에서 Claude 비용·쿼터 보호 ──
+const aiHits = new Map();
+function aiLimiter(req, res, next) {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  let e = aiHits.get(ip);
+  if (!e || now > e.reset) { e = { count: 0, reset: now + 3600e3 }; aiHits.set(ip, e); }
+  if (++e.count > 60) {
+    return res.status(429).json({ error: '요청이 너무 많아요. 1시간 뒤 다시 시도해주세요.' });
+  }
+  next();
+}
+
+// ── 임시 파일 청소부: 48시간 지난 업로드/Suno 곡 삭제(결과 MP4는 OUTPUTS라 무관) ──
+setInterval(() => {
+  fs.readdir(UPLOADS, (err, files) => {
+    if (err) return;
+    const cutoff = Date.now() - 48 * 3600e3;
+    files.forEach((f) => {
+      const p = path.join(UPLOADS, f);
+      fs.stat(p, (e2, st) => { if (!e2 && st.mtimeMs < cutoff) safeUnlink(p); });
+    });
+  });
+}, 3600e3).unref();
 
 function notify(job) {
   const payload = JSON.stringify({
@@ -333,6 +366,8 @@ app.post(
       job.error = err && err.message ? err.message : String(err);
       notify(job);
       job.cleanup.forEach(safeUnlink);
+      if (job.finish) { job.finish(); job.finish = null; } // 큐의 다음 작업 진행
+      setTimeout(() => jobs.delete(jobId), 3600e3).unref(); // 1시간 뒤 상태 정리
     }
 
     // ── PASS 1: 배경 루프 클립 인코딩(소스 종류에 맞춰) ──
@@ -418,38 +453,45 @@ app.post(
         .save(basePath);
     }
 
-    // 배경 소스 선택: ① 업로드 파일 > ② 키워드(실사 스톡) > ③ 그라데이션 테마
-    if (media) {
-      const k = (media.mimetype || '').startsWith('image') ? 'image' : 'video';
-      startPass1(k, media.path, 5);
-    } else if (keyword && stock.isConfigured()) {
-      // 키워드 → 실사 영상 검색·다운로드. 실패하면 그라데이션으로 폴백.
-      job.note = '실사 영상 찾는 중…';
-      notify(job);
-      stock
-        .search(keyword, { targetW: w, seed: seedNum })
-        .then((found) => {
-          if (!found) throw new Error('검색 결과 없음');
-          const stockPath = path.join(UPLOADS, jobId + '_stock.mp4');
-          job.cleanup.push(stockPath);
-          job.meta.stock = {
-            source: found.source, query: keyword,
-            author: found.author, authorUrl: found.authorUrl, pageUrl: found.pageUrl,
-          };
-          job.note = '영상 내려받는 중…';
-          notify(job);
-          return stock.download(found.url, stockPath).then(() => {
-            job.note = '인코딩 중…';
+    // 렌더 큐에 등록: 앞 작업이 있으면 끝날 때까지 대기(동시 인코딩 방지)
+    job.note = '대기 중…';
+    notify(job);
+    enqueueRender((done) => {
+      job.finish = done;
+      job.note = null;
+      // 배경 소스 선택: ① 업로드 파일 > ② 키워드(실사 스톡) > ③ 그라데이션 테마
+      if (media) {
+        const k = (media.mimetype || '').startsWith('image') ? 'image' : 'video';
+        startPass1(k, media.path, 5);
+      } else if (keyword && stock.isConfigured()) {
+        // 키워드 → 실사 영상 검색·다운로드. 실패하면 그라데이션으로 폴백.
+        job.note = '실사 영상 찾는 중…';
+        notify(job);
+        stock
+          .search(keyword, { targetW: w, seed: seedNum })
+          .then((found) => {
+            if (!found) throw new Error('검색 결과 없음');
+            const stockPath = path.join(UPLOADS, jobId + '_stock.mp4');
+            job.cleanup.push(stockPath);
+            job.meta.stock = {
+              source: found.source, query: keyword,
+              author: found.author, authorUrl: found.authorUrl, pageUrl: found.pageUrl,
+            };
+            job.note = '영상 내려받는 중…';
             notify(job);
-            // 클립이 길면 최대 18초까지 사용 → 반복이 덜 느껴짐(크로스페이드로 이음새 처리)
-            const clipSec = Math.floor(found.duration || 10);
-            startPass1('video', stockPath, Math.max(6, Math.min(18, clipSec)));
-          });
-        })
-        .catch(() => { job.note = null; startPass1('gradient', null, 5); });
-    } else {
-      startPass1('gradient', null, 5);
-    }
+            return stock.download(found.url, stockPath).then(() => {
+              job.note = '인코딩 중…';
+              notify(job);
+              // 클립이 길면 최대 18초까지 사용 → 반복이 덜 느껴짐(크로스페이드로 이음새 처리)
+              const clipSec = Math.floor(found.duration || 10);
+              startPass1('video', stockPath, Math.max(6, Math.min(18, clipSec)));
+            });
+          })
+          .catch(() => { job.note = null; startPass1('gradient', null, 5); });
+      } else {
+        startPass1('gradient', null, 5);
+      }
+    });
 
     // ── PASS 2: 5초 클립을 무한 루프 + 오디오 합치기(영상 스트림 복사 → 빠름) ──
     function runPass2() {
@@ -479,7 +521,9 @@ app.post(
           job.percent = 100;
           writeMeta(jobId, job.meta);
           notify(job);
-          job.cleanup.forEach(safeUnlink); // 임시 업로드 + 5초 base 클립 정리(결과물은 유지)
+          job.cleanup.forEach(safeUnlink); // 임시 업로드 + base 클립 정리(결과물은 유지)
+          if (job.finish) { job.finish(); job.finish = null; } // 큐의 다음 작업 진행
+          setTimeout(() => jobs.delete(jobId), 3600e3).unref();
         })
         .on('error', fail)
         .save(outFile);
@@ -631,7 +675,7 @@ app.get('/api/suno/file/:id', (req, res) => {
 });
 
 // 🪄 AI 생성 1단계: 컨셉을 정확히 반영하기 위한 추가 질문(선택지형)
-app.post('/api/plan/questions', async (req, res) => {
+app.post('/api/plan/questions', aiLimiter, async (req, res) => {
   try {
     const qs = await metadata.generateQuestions({ concept: req.body.concept });
     res.json(qs);
@@ -641,7 +685,7 @@ app.post('/api/plan/questions', async (req, res) => {
 });
 
 // 🪄 AI 생성 2단계: 컨셉+답변 → 키워드·제목·부제·해시태그·설명·Suno 프롬프트
-app.post('/api/plan/generate', async (req, res) => {
+app.post('/api/plan/generate', aiLimiter, async (req, res) => {
   try {
     const plan = await metadata.generatePlan({
       concept: req.body.concept,
@@ -655,7 +699,7 @@ app.post('/api/plan/generate', async (req, res) => {
 });
 
 // AI/템플릿 메타데이터 생성 (제목·해시태그·설명)
-app.post('/api/metadata/generate', async (req, res) => {
+app.post('/api/metadata/generate', aiLimiter, async (req, res) => {
   try {
     const md = await metadata.generate({
       preset: req.body.preset,
@@ -670,7 +714,7 @@ app.post('/api/metadata/generate', async (req, res) => {
 });
 
 // 키워드로 실사 영상 미리보기 (렌더 전에 어떤 영상이 잡히는지 확인)
-app.get('/api/stock/search', async (req, res) => {
+app.get('/api/stock/search', aiLimiter, async (req, res) => {
   if (!stock.isConfigured()) {
     return res.status(400).json({ error: '실사 영상이 아직 연결되지 않았습니다. 서버에 PEXELS_API_KEY 또는 PIXABAY_API_KEY를 설정하세요.', needsSetup: true });
   }

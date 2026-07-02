@@ -283,9 +283,17 @@
       <div id="planQuestions" class="hidden"></div>
       <div id="planResult" class="hidden">
         <p class="hint" id="planSummary"></p>
-        <span class="label">🎨 Suno — Style 칸에 붙여넣기</span>
+
+        <!-- Suno에서 할 일 — 순서 체크리스트 (칸 바꿔넣기 실수 방지) -->
+        <ol class="hint" style="margin:10px 0 14px; padding-left:20px; line-height:1.8;">
+          <li>아래 내용을 복사해 Suno의 <b>스타일</b> 칸에 붙여넣기</li>
+          <li><b>가사</b> 칸은 <b>비우고</b>, <b>인스트루멘탈 ✓</b> 켜기 (보컬 곡이면 가사만 붙여넣기)</li>
+          <li>만들기 → 완성된 곡의 <b>Share 링크</b>를 ① 음악에 붙여넣어 가져오기</li>
+        </ol>
+
+        <span class="label">🎨 ①번 — "스타일" 칸에 붙여넣을 내용</span>
         <textarea id="sunoStyleText" readonly rows="3"></textarea>
-        <button id="copySunoStyle" type="button" class="btn-utility">📋 Style 복사</button>
+        <button id="copySunoStyle" type="button" class="btn-utility">📋 스타일 복사</button>
 
         <!-- 보컬 없는 곡: Instrumental 토글 안내 (가사가 있을 때만 가사 UI 표시) -->
         <div id="instrumentalNote" class="hint hidden" style="margin-top:12px; padding:12px; background:#fff7e6; border-radius:12px;">
@@ -293,9 +301,9 @@
           (글자로 [Instrumental]을 넣는 것보다 토글이 확실하게 목소리를 없애줍니다)
         </div>
         <div id="sunoLyricsWrap">
-          <span class="label" style="margin-top:12px; display:block;">📝 Suno — Lyrics 칸에 붙여넣기</span>
+          <span class="label" style="margin-top:12px; display:block;">📝 ②번 — "가사" 칸에 붙여넣을 내용 (보컬 곡)</span>
           <textarea id="sunoLyricsText" readonly rows="3"></textarea>
-          <button id="copySunoLyrics" type="button" class="btn-utility">📋 Lyrics 복사</button>
+          <button id="copySunoLyrics" type="button" class="btn-utility">📋 가사 복사</button>
         </div>
         <div class="seed-row" style="margin-top:10px;">
           <button id="openSuno" type="button" class="btn-utility">Suno 열기 ↗</button>

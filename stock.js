@@ -195,7 +195,7 @@ function download(url, destPath, redirects) {
       out.on('error', reject);
     });
     req.on('error', reject);
-    req.setTimeout(60000, () => req.destroy(new Error('다운로드 시간 초과')));
+    req.setTimeout(180000, () => req.destroy(new Error('다운로드 시간 초과')));
   });
 }
 

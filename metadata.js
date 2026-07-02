@@ -64,7 +64,7 @@ function generateTemplate(presetKey, durationSec, seed) {
     `${s.emoji} ${s.ko}\n` +
     `${mood} ${s.genre}으로 채운 ${descriptor}예요. ${b1}, ${b2}에 함께하세요.\n\n` +
     `🎧 ${benefitsLine}에 좋은 음악입니다.\n` +
-    `🎵 코드로 직접 생성한 오리지널 사운드 — 저작권 걱정 없이 자유롭게 즐기세요.\n\n` +
+    `🎵 직접 제작한 오리지널 사운드입니다.\n\n` +
     `${hashline}\n\n` +
     `▶ 채널을 구독하면 새로운 플레이리스트를 가장 먼저 받아볼 수 있어요.`;
 

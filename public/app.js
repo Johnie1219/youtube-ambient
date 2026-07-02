@@ -76,7 +76,7 @@
       $('vidTags').value = `음악, 플레이리스트, BGM, playlist, music, chill`;
     }
     if (!$('vidDesc').dataset.touched) {
-      $('vidDesc').value = `코드로 생성한 오리지널 음악입니다.\n휴식·집중·드라이브에 함께하세요. ("✨ 자동 작성"으로 더 좋은 제목·태그·설명을 만들 수 있어요.)`;
+      $('vidDesc').value = `직접 제작한 오리지널 음악입니다.\n휴식·집중·드라이브에 함께하세요. ("✨ 자동 작성"으로 더 좋은 제목·태그·설명을 만들 수 있어요.)`;
     }
   }
   ['vidTitle', 'vidTags', 'vidDesc'].forEach((id) =>
@@ -283,8 +283,8 @@
       }
     });
   }
-  wireCopy('copySunoStyle', 'sunoStyleText', '📋 Style 복사');
-  wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 Lyrics 복사');
+  wireCopy('copySunoStyle', 'sunoStyleText', '📋 스타일 복사');
+  wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 가사 복사');
 
   // Suno 열기 — PC는 웹, 안드로이드는 Suno 앱(없으면 웹 폴백)
   // 단, 앱 내부 브라우저(WebView, UA에 'wv')에서는 intent://를 처리 못 해 에러가 나므로
