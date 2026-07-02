@@ -34,14 +34,18 @@ services:
       # 완성 영상을 NAS에 영구 저장(도커 named volume — 폴더를 미리 만들 필요 없음).
       - ambient_output:/data/output
 
-  # 깃에 새 코드가 올라가면 자동으로 위 컨테이너를 최신 이미지로 교체(2분마다 확인).
-  watchtower:
-    image: containrrr/watchtower
-    container_name: youtube-ambient-watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 120 --cleanup youtube-ambient
+  # ⚠️ 자동 업데이트(watchtower)는 NAS 전체에 "1개만" 두세요.
+  # 한 도커에 watchtower가 여러 개면 서로 간섭해 다른 앱이 튕길 수 있습니다.
+  # 다른 프로젝트(예: bunyang)에 이미 watchtower가 있다면 아래는 주석 그대로 두고,
+  # 그쪽 watchtower의 command에서 컨테이너 이름을 지워( --interval 300 --cleanup )
+  # NAS의 모든 컨테이너를 하나가 감시하게 하면 됩니다.
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   container_name: youtube-ambient-watchtower
+  #   restart: unless-stopped
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   command: --interval 120 --cleanup youtube-ambient
 
 volumes:
   ambient_output:
