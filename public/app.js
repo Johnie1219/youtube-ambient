@@ -171,9 +171,14 @@
 
   function renderPlanQuestions(qs) {
     planQuestionsData = qs;
-    planAnswers = new Array(qs.length).fill(null);
+    // 중복 선택 가능: 질문마다 {picks: 선택 칩들, free: 직접 입력} — 모두 합쳐 전달
+    planAnswers = qs.map(() => ({ picks: [], free: '' }));
     const box = $('planQuestions');
     box.innerHTML = '';
+    const tip = document.createElement('p');
+    tip.className = 'hint';
+    tip.textContent = '여러 개를 함께 선택할 수 있어요. 원하는 게 없으면 직접 입력해도 됩니다.';
+    box.appendChild(tip);
     qs.forEach((q, qi) => {
       const wrap = document.createElement('div');
       wrap.className = 'plan-q';
@@ -183,22 +188,19 @@
       wrap.appendChild(t);
       const opts = document.createElement('div');
       opts.className = 'chips';
-      // 직접 입력칸 — 선택지에 원하는 답이 없으면 그냥 타이핑
+      // 직접 입력칸 — 칩 선택과 함께 조합돼 전달됨
       const free = document.createElement('input');
       free.type = 'text'; free.className = 'plan-free';
-      free.placeholder = '✏️ 원하는 답이 없으면 직접 입력…';
-      free.addEventListener('input', () => {
-        const v = free.value.trim();
-        planAnswers[qi] = v || null;
-        if (v) opts.querySelectorAll('.chip').forEach((x) => x.classList.remove('active'));
-      });
+      free.placeholder = '✏️ 추가로 원하는 게 있으면 직접 입력… (선택과 함께 반영)';
+      free.addEventListener('input', () => { planAnswers[qi].free = free.value.trim(); });
       (q.options || []).forEach((op) => {
         const c = document.createElement('button');
         c.type = 'button'; c.className = 'chip'; c.textContent = op;
         c.addEventListener('click', () => {
-          planAnswers[qi] = op;
-          free.value = '';
-          opts.querySelectorAll('.chip').forEach((x) => x.classList.toggle('active', x === c));
+          const picks = planAnswers[qi].picks;
+          const idx = picks.indexOf(op);
+          if (idx >= 0) picks.splice(idx, 1); else picks.push(op); // 토글(중복 선택)
+          c.classList.toggle('active', idx < 0);
         });
         opts.appendChild(c);
       });
@@ -212,7 +214,12 @@
     go.type = 'button'; go.className = 'btn btn-primary'; go.textContent = '🪄 이 내용으로 생성';
     go.addEventListener('click', () =>
       runPlanGenerate(planQuestionsData
-        .map((q, i) => (planAnswers[i] ? { q: q.q, a: planAnswers[i] } : null))
+        .map((q, i) => {
+          const a = planAnswers[i];
+          const parts = a.picks.slice();
+          if (a.free) parts.push(a.free);
+          return parts.length ? { q: q.q, a: parts.join(', ') } : null;
+        })
         .filter(Boolean)));
     const skip = document.createElement('button');
     skip.type = 'button'; skip.className = 'btn btn-secondary'; skip.textContent = '건너뛰고 생성';
