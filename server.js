@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.06.30-9';
+const APP_VERSION = '2026.06.30-10';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -575,6 +575,19 @@ app.post('/api/videos/:id/youtube', async (req, res) => {
   }
 });
 
+// 🪄 AI 기획: 컨셉 한 줄 → 키워드·제목·부제·해시태그·설명·Suno 프롬프트
+app.post('/api/plan/generate', async (req, res) => {
+  try {
+    const plan = await metadata.generatePlan({
+      concept: req.body.concept,
+      durationSec: parseFloat(req.body.durationSec) || 180,
+    });
+    res.json(plan);
+  } catch (e) {
+    res.status(400).json({ error: e && e.message ? e.message : String(e) });
+  }
+});
+
 // AI/템플릿 메타데이터 생성 (제목·해시태그·설명)
 app.post('/api/metadata/generate', async (req, res) => {
   try {
@@ -615,6 +628,7 @@ app.get('/api/health', (req, res) => {
     ffmpeg: ffmpegPath,
     youtube: youtube.isConfigured(),
     stock: stock.isConfigured(),
+    ai: !!process.env.ANTHROPIC_API_KEY,
     metadataProvider: process.env.METADATA_PROVIDER || 'template',
   });
 });

@@ -55,6 +55,25 @@
       <p class="tagline">아래 세 가지만 정하면 끝. 나머지는 AI가 알아서 채웁니다.</p>
 
       <div class="grid">
+        <!-- 🪄 AI 기획: 컨셉 한 줄 → 나머지 자동 -->
+        <div class="field full">
+          <span class="label">🪄 AI 기획 (선택) — 컨셉 한 줄이면 아래를 전부 채워줘요</span>
+          <div class="seed-row">
+            <input id="concept" type="text" placeholder="예: 비 오는 밤 재즈바에서 듣는 감성 플레이리스트" />
+            <button id="planBtn" type="button" class="btn-utility">기획</button>
+          </div>
+          <small class="hint" id="planHint">영상 키워드·제목·부제·해시태그·설명 + <b>Suno 음악 프롬프트</b>까지 자동 작성.</small>
+          <div id="sunoBox" class="suno-box hidden">
+            <span class="label">🎵 Suno에 붙여넣을 음악 프롬프트</span>
+            <textarea id="sunoPromptText" readonly rows="3"></textarea>
+            <div class="seed-row">
+              <button id="copySuno" type="button" class="btn-utility">📋 프롬프트 복사</button>
+              <a href="https://suno.com" target="_blank" rel="noopener" class="btn-utility" style="text-decoration:none; text-align:center;">Suno 열기 ↗</a>
+            </div>
+            <small class="hint">Suno에서 곡을 만들어 mp3를 받은 뒤, 아래 ① 음악에 올리세요.</small>
+          </div>
+        </div>
+
         <!-- ① 음악 -->
         <div class="field full">
           <span class="label">① 음악</span>

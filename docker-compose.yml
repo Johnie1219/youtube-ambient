@@ -19,6 +19,10 @@ services:
       # Pixabay: https://pixabay.com/api/docs/ (가입 시 키 즉시 표시 — 더 간편)
       # - PEXELS_API_KEY=여기에_펙셀스_키
       # - PIXABAY_API_KEY=여기에_픽사베이_키
+      # ── 🪄 AI 기획 + 제목·설명 자동작성 품질↑ (Anthropic Claude) ──
+      # 발급: https://console.anthropic.com → API Keys (사용한 만큼 과금, 기획 1회 몇 원 수준)
+      # - ANTHROPIC_API_KEY=여기에_앤트로픽_키
+      # - METADATA_PROVIDER=claude
       # 외부 노출 시 권장: 간단 인증 (원하면 주석 해제하고 값 변경)
       # - BASIC_AUTH_USER=admin
       # - BASIC_AUTH_PASS=바꾸세요_강력한_비밀번호

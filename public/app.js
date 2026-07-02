@@ -136,6 +136,51 @@
     } finally { btn.disabled = false; btn.textContent = old; }
   });
 
+  // ── 🪄 AI 기획: 컨셉 한 줄 → 키워드·제목·메타·Suno 프롬프트 ──
+  $('planBtn').addEventListener('click', async () => {
+    const concept = $('concept').value.trim();
+    if (!concept) { alert('컨셉을 한 줄 적어주세요.'); return; }
+    const btn = $('planBtn'), old = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const resp = await fetch('/api/plan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concept, durationSec: audioDuration || 180 }),
+      });
+      const j = await resp.json();
+      if (!resp.ok) throw new Error(j.error || '기획 실패');
+      // 영상 키워드·제목·부제 채우기 (사용자가 이미 쓴 값은 유지)
+      if (j.keyword) { $('keyword').value = j.keyword; $('keyword').dataset.touched = '1'; }
+      if (j.overlayTitle) $('overlayText').value = j.overlayTitle;
+      if (j.subtitle) $('subtitle').value = j.subtitle;
+      // 유튜브 메타데이터 채우기
+      if (j.title) { $('vidTitle').value = j.title; $('vidTitle').dataset.touched = '1'; }
+      if (j.tags && j.tags.length) { $('vidTags').value = j.tags.join(', '); $('vidTags').dataset.touched = '1'; }
+      if (j.description) { $('vidDesc').value = j.description; $('vidDesc').dataset.touched = '1'; }
+      // Suno 프롬프트 표시
+      if (j.sunoPrompt) {
+        $('sunoPromptText').value = j.sunoPrompt;
+        $('sunoBox').classList.remove('hidden');
+      }
+      $('planHint').textContent = (j.provider === 'claude')
+        ? '✅ AI(Claude)가 기획을 완성했어요. 키워드 미리보기로 영상을 고르고, Suno 프롬프트로 곡을 만드세요.'
+        : '⚠️ ANTHROPIC_API_KEY가 없어 기본 방식으로 채웠어요. 서버에 키를 넣으면 훨씬 좋아집니다.';
+    } catch (e) {
+      alert('AI 기획 실패: ' + (e.message || e));
+    } finally { btn.disabled = false; btn.textContent = old; }
+  });
+  $('copySuno').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('sunoPromptText').value);
+      $('copySuno').textContent = '✅ 복사됨';
+      setTimeout(() => ($('copySuno').textContent = '📋 프롬프트 복사'), 1500);
+    } catch (_) {
+      $('sunoPromptText').select();
+      document.execCommand('copy');
+    }
+  });
+
   // ── 음악 소스 토글 (내 음악 올리기 ↔ 코드 생성) ──────────
   document.querySelectorAll('#musicToggle .seg-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -484,6 +529,7 @@
       const line = 'v' + (j.version || '?') +
         (j.youtube ? ' · 유튜브 연결됨' : '') +
         (j.stock ? ' · 실사영상 연결됨' : '') +
+        (j.ai ? ' · AI 연결됨' : '') +
         ' · 메타: ' + (j.metadataProvider || 'template');
       build.textContent = line;
       const top = $('buildInfoTop');

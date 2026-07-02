@@ -298,6 +298,15 @@ input[type="file"] { padding: 9px; font-size: 14px; }
 /* 큰 기본 버튼(메인 한 방) */
 .btn-big { font-size: 17px; padding: 16px 24px; width: 100%; }
 
+/* ── 🪄 AI 기획 / Suno 프롬프트 박스 ─────────────────────── */
+.suno-box {
+  margin-top: 12px; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: var(--r-lg);
+  background: #fafafa;
+}
+.suno-box textarea { width: 100%; margin: 8px 0; font-size: 13px; }
+.suno-box.hidden { display: none; }
+
 /* ── 실사 영상 미리보기 ──────────────────────────────────── */
 .stock-preview { margin-top: 10px; }
 .stock-preview.hidden { display: none; }

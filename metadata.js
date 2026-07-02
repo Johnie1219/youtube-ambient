@@ -111,19 +111,24 @@ function extractJson(text) {
   };
 }
 
-async function generateClaude(presetKey, durationSec) {
+// Claude API 호출 공통부 — 프롬프트를 보내고 본문 텍스트를 돌려준다.
+async function callClaude(prompt, maxTokens) {
   const key = process.env.ANTHROPIC_API_KEY;
   const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
   const body = JSON.stringify({
-    model, max_tokens: 1024,
-    messages: [{ role: 'user', content: buildPrompt(presetKey, durationSec) }],
+    model, max_tokens: maxTokens || 1024,
+    messages: [{ role: 'user', content: prompt }],
   });
   const raw = await httpJson(https, {
     host: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-length': Buffer.byteLength(body) },
   }, body);
   const j = JSON.parse(raw);
-  const text = (j.content && j.content[0] && j.content[0].text) || '';
+  return (j.content && j.content[0] && j.content[0].text) || '';
+}
+
+async function generateClaude(presetKey, durationSec) {
+  const text = await callClaude(buildPrompt(presetKey, durationSec));
   return Object.assign(extractJson(text), { provider: 'claude' });
 }
 
@@ -156,4 +161,60 @@ async function generate(opts) {
   return generateTemplate(presetKey, durationSec, opts.seed);
 }
 
-module.exports = { generate, SEEDS };
+// ── 🪄 AI 기획: 컨셉 한 줄 → 영상 키워드·제목·해시태그·설명·Suno 프롬프트 ──
+// ANTHROPIC_API_KEY가 있으면 Claude가 전부 작성. 없으면 컨셉 그대로의 소박한 폴백.
+function buildPlanPrompt(concept, durationSec) {
+  return (
+    `너는 유튜브 음악 채널의 크리에이티브 디렉터야. 아래 컨셉으로 음악 플레이리스트 영상 한 편을 기획해줘.\n` +
+    `컨셉: "${concept}"\n` +
+    `길이: 약 ${Math.round((durationSec || 180) / 60)}분. 음악은 Suno로 생성, 배경은 Pixabay 스톡 실사 영상.\n` +
+    `반드시 아래 JSON만 출력(설명·마크다운 금지):\n` +
+    `{\n` +
+    ` "keyword": "Pixabay 영상 검색용 영어 2~4단어. 시네마틱하고 구체적인 장면 묘사(예: rainy jazz bar window)",\n` +
+    ` "overlayTitle": "영상 위 큰 제목. 컨셉의 감성을 담아 짧고 우아하게(한글 또는 영문, 20자 이내)",\n` +
+    ` "subtitle": "제목 아래 영문 부제. 대문자 2~4단어(예: JAZZ VOCAL PLAYLIST)",\n` +
+    ` "title": "유튜브 제목. 100자 이내, 이모지 1개+한글, 용도(수면·집중·드라이브 등) 포함, 클릭률 높게",\n` +
+    ` "tags": ["해시태그 12~15개, 한/영 혼합"],\n` +
+    ` "description": "유튜브 설명 5~8줄. 분위기 묘사 + 용도 + 해시태그 줄 + 구독 유도",\n` +
+    ` "sunoPrompt": "Suno에 붙여넣을 영어 프롬프트. 장르·무드·악기·템포(BPM)·no vocals 여부까지 구체적으로 한 문장~두 문장"\n` +
+    `}`
+  );
+}
+
+function extractPlan(text) {
+  const a = text.indexOf('{'); const b = text.lastIndexOf('}');
+  if (a < 0 || b < 0) throw new Error('JSON 파싱 실패');
+  const o = JSON.parse(text.slice(a, b + 1));
+  return {
+    keyword: String(o.keyword || '').slice(0, 80),
+    overlayTitle: String(o.overlayTitle || '').slice(0, 40),
+    subtitle: String(o.subtitle || '').slice(0, 40),
+    title: String(o.title || '').slice(0, 100),
+    tags: Array.isArray(o.tags) ? o.tags.map(String).slice(0, 20) : [],
+    description: String(o.description || ''),
+    sunoPrompt: String(o.sunoPrompt || ''),
+  };
+}
+
+async function generatePlan(opts) {
+  const concept = String(opts.concept || '').trim();
+  if (!concept) throw new Error('컨셉을 입력하세요.');
+  const durationSec = opts.durationSec || 180;
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const text = await callClaude(buildPlanPrompt(concept, durationSec), 1500);
+      return Object.assign(extractPlan(text), { provider: 'claude' });
+    } catch (e) { /* 아래 폴백으로 */ }
+  }
+  // 폴백(키 없음/실패): 컨셉을 그대로 활용한 기본 기획
+  const t = generateTemplate('boom_drive', durationSec, concept.length);
+  return {
+    keyword: concept, overlayTitle: '', subtitle: '',
+    title: `${concept} | ${t.title}`.slice(0, 100),
+    tags: t.tags, description: t.description,
+    sunoPrompt: `instrumental music for "${concept}", no vocals, high quality`,
+    provider: 'template',
+  };
+}
+
+module.exports = { generate, generatePlan, SEEDS };
