@@ -176,14 +176,14 @@ async function search(keyword, opts) {
   return p === 'pexels' ? searchPexels(q, targetW, seed) : searchPixabay(q, targetW, seed);
 }
 
-// 직접 mp4 링크를 파일로 내려받는다(리다이렉트 추적).
-function download(url, destPath, redirects) {
+// 직접 mp4/mp3 링크를 파일로 내려받는다(리다이렉트 추적, 선택적 헤더 — 핫링크 보호 우회용).
+function download(url, destPath, redirects, headers) {
   return new Promise((resolve, reject) => {
     if ((redirects || 0) > 5) return reject(new Error('리다이렉트 과다'));
-    const req = https.get(url, (res) => {
+    const req = https.get(url, { headers: headers || {} }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        return resolve(download(res.headers.location, destPath, (redirects || 0) + 1));
+        return resolve(download(res.headers.location, destPath, (redirects || 0) + 1, headers));
       }
       if (res.statusCode !== 200) {
         res.resume();

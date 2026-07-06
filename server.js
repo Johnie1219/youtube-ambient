@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-11';
+const APP_VERSION = '2026.07.02-12';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -692,13 +692,29 @@ app.post('/api/suno/fetch', async (req, res) => {
   }
   sid = sid.toLowerCase();
   const fileId = crypto.randomBytes(8).toString('hex');
-  try {
-    await stock.download('https://cdn1.suno.ai/' + sid + '.mp3', sunoFilePath(fileId));
-    res.json({ id: fileId });
-  } catch (e) {
-    safeUnlink(sunoFilePath(fileId));
-    res.status(502).json({ error: '곡을 가져오지 못했어요. 곡이 비공개이거나 링크가 잘못됐을 수 있어요. (' + (e.message || e) + ')' });
+  // CDN 핫링크 보호 대비: 브라우저인 척하는 헤더 + 대체 경로를 순서대로 시도
+  const sunoHeaders = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+    referer: 'https://suno.com/',
+    accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.8',
+  };
+  const candidates = [
+    'https://cdn1.suno.ai/' + sid + '.mp3',
+    'https://audiopipe.suno.ai/?item_id=' + sid,
+  ];
+  let lastErr = null;
+  for (const u of candidates) {
+    try {
+      await stock.download(u, sunoFilePath(fileId), 0, sunoHeaders);
+      return res.json({ id: fileId });
+    } catch (e) { lastErr = e; }
   }
+  safeUnlink(sunoFilePath(fileId));
+  res.status(502).json({
+    error: '곡을 가져오지 못했어요 (' + ((lastErr && lastErr.message) || '오류') + '). ' +
+      '곡이 비공개일 수 있어요 — Suno에서 해당 곡을 Public(공개)으로 바꾸거나, ' +
+      '시크릿 창에서 링크가 재생되는지 확인해보세요. 안 되면 mp3를 내려받아 파일로 올리면 됩니다.',
+  });
 });
 
 // 가져온 곡 미리듣기 스트리밍
