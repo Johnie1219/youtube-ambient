@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-10';
+const APP_VERSION = '2026.07.02-11';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -649,13 +649,48 @@ app.post('/api/videos/:id/youtube', async (req, res) => {
 const SUNO_UUID = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 function sunoFilePath(id) { return path.join(UPLOADS, 'suno_' + id + '.mp3'); }
 
+// suno.com/s/XXXX 단축 공유 링크 → 리다이렉트를 따라가거나 페이지에서 곡 UUID를 찾아낸다.
+const httpsMod = require('https');
+function resolveSunoShort(url, depth) {
+  return new Promise((resolve) => {
+    if ((depth || 0) > 5) return resolve(null);
+    const req = httpsMod.get(url, { headers: { 'user-agent': 'Mozilla/5.0' } }, (r) => {
+      const loc = r.headers.location;
+      if (r.statusCode >= 300 && r.statusCode < 400 && loc) {
+        r.resume();
+        const next = loc.startsWith('http') ? loc : 'https://suno.com' + loc;
+        const m = next.match(SUNO_UUID);
+        if (m) return resolve(m[1].toLowerCase());
+        return resolve(resolveSunoShort(next, (depth || 0) + 1));
+      }
+      // 리다이렉트가 아니면 페이지 본문에서 UUID 탐색(og:url·오디오 링크 등에 포함됨)
+      let body = '';
+      r.on('data', (d) => { body += d; if (body.length > 500000) r.destroy(); });
+      r.on('end', () => {
+        const m = body.match(SUNO_UUID);
+        resolve(m ? m[1].toLowerCase() : null);
+      });
+      r.on('close', () => {
+        const m = body.match(SUNO_UUID);
+        resolve(m ? m[1].toLowerCase() : null);
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+  });
+}
+
 app.post('/api/suno/fetch', async (req, res) => {
   const url = String((req.body && req.body.url) || '').trim();
-  const m = url.match(SUNO_UUID);
-  if (!m) {
-    return res.status(400).json({ error: '링크에서 곡 ID를 찾지 못했어요. Suno에서 곡의 "Share → Copy Link"로 복사한 주소를 붙여넣으세요.' });
+  let sid = (url.match(SUNO_UUID) || [])[1];
+  // 새 단축 링크(suno.com/s/…) 지원: 따라가서 실제 곡 ID를 알아낸다
+  if (!sid && /suno\.com\/s\//i.test(url)) {
+    sid = await resolveSunoShort(url.split(/\s/)[0]);
   }
-  const sid = m[1].toLowerCase();
+  if (!sid) {
+    return res.status(400).json({ error: '링크에서 곡 ID를 찾지 못했어요. Suno에서 곡의 "Share → Copy Link"로 복사한 주소(suno.com/s/… 또는 suno.com/song/…)를 붙여넣으세요.' });
+  }
+  sid = sid.toLowerCase();
   const fileId = crypto.randomBytes(8).toString('hex');
   try {
     await stock.download('https://cdn1.suno.ai/' + sid + '.mp3', sunoFilePath(fileId));
