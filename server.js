@@ -25,7 +25,7 @@ const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 // 빌드 버전 — 배포 때마다 올려, 화면 푸터에서 "업데이트 반영"을 눈으로 확인할 수 있게 한다.
-const APP_VERSION = '2026.07.02-12';
+const APP_VERSION = '2026.07.02-13';
 
 const app = express();
 const PORT = process.env.PORT || 5174;
@@ -453,6 +453,19 @@ app.post(
         .save(basePath);
     }
 
+    // 🔊 배경 자연음(실험): Suno가 효과음을 못 만들어, 합성 앰비언스를 음악 밑에 깔아준다.
+    // ffmpeg lavfi로 노이즈를 조형(모닥불=저음 노이즈+간헐 크랙클, 비=중고역 노이즈 등).
+    const AMBIENCE = {
+      fire:
+        'anoisesrc=color=brown:amplitude=0.55,lowpass=f=300[bed];' +
+        'anoisesrc=color=white:amplitude=0.8,highpass=f=1500,agate=threshold=0.6:ratio=20:attack=0.5:release=50[crk];' +
+        '[bed][crk]amix=inputs=2:duration=longest',
+      rain: 'anoisesrc=color=white:amplitude=0.5,highpass=f=400,lowpass=f=6000',
+      waves: 'anoisesrc=color=brown:amplitude=0.8,lowpass=f=800,tremolo=f=0.08:d=0.8',
+      wind: 'anoisesrc=color=brown:amplitude=0.7,lowpass=f=500,tremolo=f=0.15:d=0.5',
+    };
+    const ambienceGraph = AMBIENCE[String(req.body.ambience || '')] || null;
+
     // 렌더 큐에 등록: 앞 작업이 있으면 끝날 때까지 대기(동시 인코딩 방지)
     job.note = '대기 중…';
     notify(job);
@@ -495,22 +508,34 @@ app.post(
 
     // ── PASS 2: 5초 클립을 무한 루프 + 오디오 합치기(영상 스트림 복사 → 빠름) ──
     function runPass2() {
-      ffmpeg()
+      const c2 = ffmpeg()
         .input(basePath)
         .inputOptions(['-stream_loop', '-1'])
-        .input(audioPath)
-        .outputOptions([
-          '-map', '0:v:0',
-          '-map', '1:a:0',
-          '-c:v', 'copy', // 재인코딩 없음 → 길이와 무관하게 빠름
-          '-c:a', 'aac',
-          '-b:a', '192k',
-          '-ar', '48000',
-          '-ac', '2',
-          '-t', String(duration),
-          '-shortest',
-          '-movflags', '+faststart',
-        ])
+        .input(audioPath);
+      const outOpts = [
+        '-map', '0:v:0',
+        '-c:v', 'copy', // 재인코딩 없음 → 길이와 무관하게 빠름
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-ar', '48000',
+        '-ac', '2',
+        '-t', String(duration),
+        '-shortest',
+        '-movflags', '+faststart',
+      ];
+      if (ambienceGraph) {
+        // 자연음을 음악 밑에 은은히(0.3) 섞고 리미터로 클리핑 방지. duration=first → 음악 길이 기준.
+        c2.input(ambienceGraph).inputFormat('lavfi');
+        c2.complexFilter([
+          '[2:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.3[amb]',
+          '[1:a][amb]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.98[aout]',
+        ]);
+        outOpts.splice(2, 0, '-map', '[aout]');
+      } else {
+        outOpts.splice(2, 0, '-map', '1:a:0');
+      }
+      c2
+        .outputOptions(outOpts)
         .on('progress', (p) => {
           const sec = timemarkToSeconds(p.timemark);
           job.percent = Math.min(99, 35 + (sec / duration) * 64);

@@ -486,6 +486,7 @@
     // 영상 보정(밝기·채도) — 슬라이더(%) → 디케이션 값
     fd.append('brightness', String(((parseInt($('brightness').value, 10) || 0) / 100)));
     fd.append('saturation', String(((parseInt($('saturation').value, 10) || 100) / 100)));
+    fd.append('ambience', $('ambience').value); // 배경 자연음(모닥불·비 등)
 
     btn.disabled = true; $('generate').disabled = true; $('autoGenerate').disabled = true;
     status.className = 'status'; status.innerHTML = '<span class="spinner"></span>업로드 중…';
