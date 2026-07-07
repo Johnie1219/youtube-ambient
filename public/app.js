@@ -286,6 +286,25 @@
   wireCopy('copySunoStyle', 'sunoStyleText', '📋 스타일 복사');
   wireCopy('copySunoLyrics', 'sunoLyricsText', '📋 가사 복사');
 
+  // 📖 가이드의 복사 버튼들 (data-copy 속성 값을 클립보드로)
+  document.querySelectorAll('.copy-btn[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const old = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.textContent = '✅ 복사됨';
+      } catch (_) {
+        // 클립보드 API 실패 시 임시 textarea로 폴백
+        const ta = document.createElement('textarea');
+        ta.value = btn.dataset.copy;
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+        btn.textContent = '✅ 복사됨';
+      }
+      setTimeout(() => (btn.textContent = old), 1200);
+    });
+  });
+
   // Suno 열기 — PC는 웹, 안드로이드는 Suno 앱(없으면 웹 폴백)
   // 단, 앱 내부 브라우저(WebView, UA에 'wv')에서는 intent://를 처리 못 해 에러가 나므로
   // 일반 https로 열기 → 새 APK가 외부 링크를 크롬으로 넘겨 앱 링크가 동작한다.

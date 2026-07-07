@@ -78,6 +78,66 @@
               <button id="sunoFetchBtn" type="button" class="btn-utility">가져오기</button>
             </div>
             <small class="hint">링크만 붙여넣으면 곡을 자동으로 가져와요. 여러 곡을 가져와 듣고 고를 수 있습니다(공개 곡만).</small>
+
+            <!-- 📖 Suno 설정 가이드 (접기/펼치기) -->
+            <details class="suno-guide">
+              <summary>📖 Suno 설정 가이드 — 목소리 없는 곡 만들기</summary>
+
+              <div class="guide-section">
+                <b>🎤 목소리 확실히 빼는 법 (4가지 함께!)</b>
+                <ul>
+                  <li><b>모델</b>: 상단 모델 선택창에서 <b>v5.5</b> 선택</li>
+                  <li><b>Instrumental 토글</b>: <b>ON</b> (켜기)</li>
+                  <li><b>스타일 칸 맨 앞에</b> 아래 문구 넣기
+                    <div class="gp-head">
+                      <code>instrumental, no vocals</code>
+                      <button type="button" class="btn-utility copy-btn" data-copy="instrumental, no vocals">📋 복사</button>
+                    </div>
+                  </li>
+                  <li><b>가사 칸</b>: 완전히 비우기</li>
+                  <li><b>Exclude(제외) 칸</b>에 아래 문구 넣기
+                    <div class="gp-head">
+                      <code>vocals, singing, lyrics, humming, vocalizations</code>
+                      <button type="button" class="btn-utility copy-btn" data-copy="vocals, singing, lyrics, humming, vocalizations">📋 복사</button>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="guide-section">
+                <b>🎵 장르별 추천 프롬프트</b> <small class="hint" style="display:inline;">— 복사해서 Suno 스타일 칸에 붙여넣으세요</small>
+
+                <div class="guide-prompt">
+                  <div class="gp-head"><b>☕ 가을 재즈 카페</b>
+                    <button type="button" class="btn-utility copy-btn" data-copy="instrumental, no vocals, smooth jazz, warm piano, upright bass, brush drums, cozy autumn cafe, relaxing, 70 BPM">📋 복사</button>
+                  </div>
+                  <code>instrumental, no vocals, smooth jazz, warm piano, upright bass, brush drums, cozy autumn cafe, relaxing, 70 BPM</code>
+                </div>
+
+                <div class="guide-prompt">
+                  <div class="gp-head"><b>🌊 보사노바</b>
+                    <button type="button" class="btn-utility copy-btn" data-copy="instrumental, no vocals, bossa nova, nylon guitar, soft percussion, seaside morning, calm, 75 BPM">📋 복사</button>
+                  </div>
+                  <code>instrumental, no vocals, bossa nova, nylon guitar, soft percussion, seaside morning, calm, 75 BPM</code>
+                </div>
+
+                <div class="guide-prompt">
+                  <div class="gp-head"><b>📚 로파이 카페</b>
+                    <button type="button" class="btn-utility copy-btn" data-copy="instrumental, no vocals, lo-fi hip-hop, vinyl crackle, mellow piano, soft drums, study, 80 BPM">📋 복사</button>
+                  </div>
+                  <code>instrumental, no vocals, lo-fi hip-hop, vinyl crackle, mellow piano, soft drums, study, 80 BPM</code>
+                </div>
+              </div>
+
+              <div class="guide-section">
+                <b>⚠️ 자주 하는 실수</b>
+                <ul>
+                  <li>기존 곡에서 <b>"리믹스"</b>를 누르면 원곡 보컬이 따라와요 → 반드시 <b>새로 Create</b></li>
+                  <li>한 번에 안 되면 <b>5개 정도 만들어</b> 제일 좋은 걸 고르세요 (매번 결과가 달라요)</li>
+                </ul>
+              </div>
+            </details>
+
             <div id="sunoTracks" class="suno-tracks"></div>
             <div style="margin-top:10px;">
               <input id="audioFile" type="file" accept="audio/*" />
